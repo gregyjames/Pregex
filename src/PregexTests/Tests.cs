@@ -398,6 +398,34 @@ public class Tests
         Assert.IsFalse(regex.IsMatch("testing"));
         Assert.IsFalse(regex.IsMatch("atestb"));
     }
+    
+    [Test]
+    public void TestNotWordBoundary()
+    {
+        var regex = RegexBuilder.Create()
+            .Literal("test")
+            .NotWordBoundary()
+            .Build();
+        
+        Assert.IsTrue(regex.IsMatch("testing"));
+        Assert.IsTrue(regex.IsMatch("test123"));
+        
+        Assert.IsFalse(regex.IsMatch("test "));
+        Assert.IsFalse(regex.IsMatch("test."));
+        
+        var regex2 = RegexBuilder.Create()
+            .NotWordBoundary()
+            .Literal("ing")
+            .Build();
+        
+        // Should match "ing" when it's in the middle of a word
+        Assert.IsTrue(regex2.IsMatch("testing"));
+        Assert.IsTrue(regex2.IsMatch("running"));
+        
+        // Should NOT match "ing" at the start
+        Assert.IsFalse(regex2.IsMatch("ing"));
+    }
+    
     #endregion
 
     #region Group Tests
