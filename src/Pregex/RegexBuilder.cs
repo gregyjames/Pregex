@@ -912,7 +912,7 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="matchTimeout">A time-out interval, or <see cref="Regex.InfiniteMatchTimeout"/> to indicate that the method should not time out.</param>
     /// <returns>A new <see cref="Regex"/> instance.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="matchTimeout"/> is negative (other than <see cref="Regex.InfiniteMatchTimeout"/>) or zero.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="matchTimeout"/> is negative (other than <see cref="Regex.InfiniteMatchTimeout"/>), zero, or exceeds the maximum supported timeout.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public Regex Build(TimeSpan matchTimeout)
     {
