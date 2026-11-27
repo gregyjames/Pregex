@@ -545,4 +545,49 @@ public class CharacterSetTests
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
         builder.Build().IsMatch("abab").Should().BeTrue();
     }
+
+    [Test]
+    public void TestSetControlEscapeBackslashFollowedByControlEscapesAndRanges()
+    {
+        using var fsAndNull = RegexBuilder.Create().StartOfString().Set("\\c\\\0").EndOfString().Compiled();
+        fsAndNull.GetPattern().Should().Be(@"^[\c\\x00]$");
+        fsAndNull.Build().IsMatch("\x1C").Should().BeTrue();
+        fsAndNull.Build().IsMatch("\0").Should().BeTrue();
+        fsAndNull.Build().IsMatch(@"\").Should().BeFalse();
+
+        using var fsAndHyphen = RegexBuilder.Create().StartOfString().Set(@"\c\-").EndOfString();
+        fsAndHyphen.Build().IsMatch("\x1C").Should().BeTrue();
+        fsAndHyphen.Build().IsMatch("-").Should().BeTrue();
+        fsAndHyphen.Build().IsMatch("a").Should().BeFalse();
+
+        using var fsToZRange = RegexBuilder.Create().StartOfString().Set(@"\c\-z").EndOfString();
+        fsToZRange.Build().IsMatch("\x1C").Should().BeTrue();
+        fsToZRange.Build().IsMatch(" ").Should().BeTrue();
+        fsToZRange.Build().IsMatch("z").Should().BeTrue();
+        fsToZRange.Build().IsMatch("{").Should().BeFalse();
+
+        using var fsAndBackslashAndLetter = RegexBuilder.Create().StartOfString().Set(@"\c\\\a").EndOfString();
+        fsAndBackslashAndLetter.Build().IsMatch("\x1C").Should().BeTrue();
+        fsAndBackslashAndLetter.Build().IsMatch(@"\").Should().BeTrue();
+        fsAndBackslashAndLetter.Build().IsMatch("a").Should().BeTrue();
+        fsAndBackslashAndLetter.Build().IsMatch("b").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestRangeNonAsciiSeparatorsWithIgnorePatternWhitespaceAndCompiled()
+    {
+        foreach (char sep in new[] { '\u0085', '\u2028', '\u2029' })
+        {
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Range(sep, sep)
+                .EndOfString()
+                .IgnorePatternWhitespace()
+                .Compiled();
+
+            var regex = builder.Build();
+            regex.IsMatch(sep.ToString()).Should().BeTrue();
+            regex.IsMatch(" ").Should().BeFalse();
+        }
+    }
 }

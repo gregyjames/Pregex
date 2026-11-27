@@ -302,4 +302,32 @@ public class CharacterMatchingTests
             regex.IsMatch(pair + "p").Should().BeFalse($"multi-char pair containing U+{code:X4} should require full pair");
         }
     }
+
+    [Test]
+    public void TestLiteralCrlfAndSurrogatePairsWithQuantifiersAndOptions()
+    {
+        using var crlfBuilder = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("\r\n").OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Compiled();
+
+        crlfBuilder.GetPattern().Should().Be(@"^(?:\r\n)+$");
+        var crlfRegex = crlfBuilder.Build();
+        crlfRegex.IsMatch("\r\n\r\n").Should().BeTrue();
+        crlfRegex.IsMatch("\n").Should().BeFalse();
+
+        using var emojiBounded = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("😀").Between(1, 2)
+            .EndOfString()
+            .Compiled();
+
+        emojiBounded.GetPattern().Should().Be("^(?:😀){1,2}$");
+        var emojiRegex = emojiBounded.Build();
+        emojiRegex.IsMatch("😀").Should().BeTrue();
+        emojiRegex.IsMatch("😀😀").Should().BeTrue();
+        emojiRegex.IsMatch("😀😀😀").Should().BeFalse();
+    }
 }

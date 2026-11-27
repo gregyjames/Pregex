@@ -197,4 +197,40 @@ public class RegexOptionsTests
         regex.IsMatch(separators + separators).Should().BeTrue();
         regex.IsMatch("").Should().BeFalse();
     }
+
+    [Test]
+    public void TestAllOptionsCombined()
+    {
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Group(b => b.Literal("pre "))
+            .NamedGroup("val", b => b.AnyChar().OneOrMore())
+            .EndOfString()
+            .IgnoreCase()
+            .Multiline()
+            .Singleline()
+            .ExplicitCapture()
+            .Compiled()
+            .IgnorePatternWhitespace()
+            .CultureInvariant()
+            .RightToLeft();
+
+        RegexOptions expected = RegexOptions.IgnoreCase
+            | RegexOptions.Multiline
+            | RegexOptions.Singleline
+            | RegexOptions.ExplicitCapture
+            | RegexOptions.Compiled
+            | RegexOptions.IgnorePatternWhitespace
+            | RegexOptions.CultureInvariant
+            | RegexOptions.RightToLeft;
+
+        builder.GetOptions().Should().Be(expected);
+        var regex = builder.Build();
+        regex.Options.Should().Be(expected);
+
+        var match = regex.Match("first\nPRE a\nb");
+        match.Success.Should().BeTrue();
+        match.Groups.Count.Should().Be(2);
+        match.Groups["val"].Value.Should().Be("a\nb");
+    }
 }
