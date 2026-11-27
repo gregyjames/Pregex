@@ -123,9 +123,17 @@ public class RegexBuilder : IDisposable
         {
             if (!_disposed)
             {
-                string previousPattern = _pattern.AsSpan().Slice(0, startLength).ToString();
-                _pattern.Clear();
-                _pattern.Append(previousPattern);
+                if (startLength == 0)
+                {
+                    _pattern.Clear();
+                }
+                else
+                {
+                    string previousPattern = _pattern.AsSpan().Slice(0, startLength).ToString();
+                    _pattern.Clear();
+                    _pattern.Append(previousPattern);
+                }
+
                 _lastTokenKind = previousTokenKind;
                 _lastMultiCharLiteralStart = previousLiteralStart;
                 _options = previousOptions;
@@ -418,7 +426,7 @@ public class RegexBuilder : IDisposable
         ThrowIfDisposed();
         if (start > end)
         {
-            throw new ArgumentOutOfRangeException(nameof(start), $"Start character '{start}' cannot be greater than end character '{end}'.");
+            throw new ArgumentOutOfRangeException(nameof(start), start, $"Start character '{start}' cannot be greater than end character '{end}'.");
         }
 
         _lastTokenKind = LastTokenKind.Quantifiable;
