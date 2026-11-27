@@ -35,7 +35,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="ZString" Version="2.6.0" />
+      <PackageReference Include="ZString" />
     </ItemGroup>
 
 </Project>
