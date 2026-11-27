@@ -78,11 +78,12 @@ public class LookaroundTests
 
         builder.Invoking(b => b.PositiveLookahead(inner =>
         {
-            inner.Literal("px");
+            inner.Literal("px").Singleline();
             throw new InvalidOperationException("boom");
         })).Should().Throw<InvalidOperationException>();
 
         builder.GetPattern().Should().Be(@"\d");
+        builder.GetOptions().Should().Be(RegexOptions.None);
     }
 
     [Test]

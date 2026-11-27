@@ -100,6 +100,7 @@ public class RegexBuilder : IDisposable
         int startLength = _pattern.Length;
         LastTokenKind previousTokenKind = _lastTokenKind;
         int previousLiteralStart = _lastMultiCharLiteralStart;
+        RegexOptions previousOptions = _options;
 
         try
         {
@@ -124,6 +125,7 @@ public class RegexBuilder : IDisposable
                 _pattern.Append(previousPattern);
                 _lastTokenKind = previousTokenKind;
                 _lastMultiCharLiteralStart = previousLiteralStart;
+                _options = previousOptions;
             }
 
             throw;

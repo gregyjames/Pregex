@@ -58,15 +58,16 @@ public class GroupTests
     [Test]
     public void TestGroupThrowingCallbackRollsBackPartialPatternAndRestoresTokenState()
     {
-        using var builder = RegexBuilder.Create().Literal("ab");
+        using var builder = RegexBuilder.Create().Literal("ab").IgnoreCase();
 
         builder.Invoking(b => b.Group(inner =>
         {
-            inner.Digit().OneOrMore();
+            inner.Digit().OneOrMore().Multiline();
             throw new InvalidOperationException("boom");
         })).Should().Throw<InvalidOperationException>();
 
         builder.GetPattern().Should().Be("ab");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
     }
 
