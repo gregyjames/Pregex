@@ -399,4 +399,101 @@ public class CharacterSetTests
         regex.IsMatch("\uDFFF").Should().BeTrue();
         regex.IsMatch("a").Should().BeFalse();
     }
+
+    [TestCase(@"\c[", @"[\c[]", "\x1B", "[")]
+    [TestCase(@"\c\", @"[\c\]", "\x1C", @"\")]
+    [TestCase(@"\c]", @"[\c]]", "\x1D", "]")]
+    [TestCase(@"\c^", @"[\c^]", "\x1E", "^")]
+    public void TestSetAndNotSetPreserveControlEscapesWithMetacharacterDesignators(
+        string spec,
+        string expectedInnerPattern,
+        string expectedMatch,
+        string literalChar)
+    {
+        using var setBuilder = RegexBuilder.Create().StartOfString().Set(spec).EndOfString();
+        setBuilder.GetPattern().Should().Be("^" + expectedInnerPattern + "$");
+        var setRegex = setBuilder.Build();
+        setRegex.IsMatch(expectedMatch).Should().BeTrue();
+        setRegex.IsMatch(literalChar).Should().BeFalse();
+        setRegex.IsMatch("\x1C").Should().Be(expectedMatch == "\x1C");
+
+        using var notSetBuilder = RegexBuilder.Create().StartOfString().NotSet(spec).EndOfString();
+        notSetBuilder.GetPattern().Should().Be("^[^" + expectedInnerPattern[1..] + "$");
+        var notSetRegex = notSetBuilder.Build();
+        notSetRegex.IsMatch(expectedMatch).Should().BeFalse();
+        notSetRegex.IsMatch(literalChar).Should().BeTrue();
+    }
+
+    [Test]
+    public void TestSetHandlesControlEscapesCombinedWithLiteralsBackslashesAndRanges()
+    {
+        using var gsAndBracket = RegexBuilder.Create().Set(@"\c]]");
+        gsAndBracket.GetPattern().Should().Be(@"[\c]\]]");
+        var gsAndBracketRegex = gsAndBracket.Build();
+        gsAndBracketRegex.IsMatch("\x1D").Should().BeTrue();
+        gsAndBracketRegex.IsMatch("]").Should().BeTrue();
+        gsAndBracketRegex.IsMatch("a").Should().BeFalse();
+
+        using var fsAndBackslash = RegexBuilder.Create().Set(@"\c\\");
+        fsAndBackslash.GetPattern().Should().Be(@"[\c\\\]");
+        var fsAndBackslashRegex = fsAndBackslash.Build();
+        fsAndBackslashRegex.IsMatch("\x1C").Should().BeTrue();
+        fsAndBackslashRegex.IsMatch(@"\").Should().BeTrue();
+        fsAndBackslashRegex.IsMatch("a").Should().BeFalse();
+
+        using var escapedBackslashBeforeC = RegexBuilder.Create().Set(@"\\c[");
+        escapedBackslashBeforeC.GetPattern().Should().Be(@"[\\c\[]");
+        var escapedBackslashRegex = escapedBackslashBeforeC.Build();
+        escapedBackslashRegex.IsMatch(@"\").Should().BeTrue();
+        escapedBackslashRegex.IsMatch("c").Should().BeTrue();
+        escapedBackslashRegex.IsMatch("[").Should().BeTrue();
+        escapedBackslashRegex.IsMatch("\x1B").Should().BeFalse();
+
+        using var escapedBackslashThenControl = RegexBuilder.Create().Set(@"\\\c[");
+        escapedBackslashThenControl.GetPattern().Should().Be(@"[\\\c[]");
+        var escapedThenControlRegex = escapedBackslashThenControl.Build();
+        escapedThenControlRegex.IsMatch(@"\").Should().BeTrue();
+        escapedThenControlRegex.IsMatch("\x1B").Should().BeTrue();
+        escapedThenControlRegex.IsMatch("[").Should().BeFalse();
+
+        using var controlRange = RegexBuilder.Create().Set(@"\c[- ");
+        controlRange.GetPattern().Should().Be(@"[\c[- ]");
+        var controlRangeRegex = controlRange.Build();
+        controlRangeRegex.IsMatch("\x1B").Should().BeTrue();
+        controlRangeRegex.IsMatch("\x1F").Should().BeTrue();
+        controlRangeRegex.IsMatch(" ").Should().BeTrue();
+        controlRangeRegex.IsMatch("!").Should().BeFalse();
+
+        using var invalidControl = RegexBuilder.Create().Literal("keep");
+        invalidControl.Invoking(b => b.Set(@"\c1")).Should().Throw<ArgumentException>();
+        invalidControl.Invoking(b => b.Set("\\c\0")).Should().Throw<ArgumentException>();
+        invalidControl.Invoking(b => b.NotSet(@"\c-")).Should().Throw<ArgumentException>();
+        invalidControl.GetPattern().Should().Be("keep");
+    }
+
+    [Test]
+    public void TestRangeHandlesAllSpecialCharacterBoundaryCombinations()
+    {
+        char[] specialChars =
+        [
+            '\0', '\t', '\n', '\v', '\f', '\r', ' ', '#', '-', '[', '\\', ']', '^'
+        ];
+
+        for (int i = 0; i < specialChars.Length; i++)
+        {
+            for (int j = i; j < specialChars.Length; j++)
+            {
+                char start = specialChars[i];
+                char end = specialChars[j];
+                using var builder = RegexBuilder.Create().StartOfString().Range(start, end).EndOfString();
+                var normal = builder.Build();
+                normal.IsMatch(start.ToString()).Should().BeTrue();
+                normal.IsMatch(end.ToString()).Should().BeTrue();
+
+                var ignoreWs = builder.IgnorePatternWhitespace().Build();
+                ignoreWs.IsMatch(start.ToString()).Should().BeTrue();
+                ignoreWs.IsMatch(end.ToString()).Should().BeTrue();
+            }
+        }
+    }
 }

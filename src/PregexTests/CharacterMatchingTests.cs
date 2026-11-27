@@ -219,4 +219,67 @@ public class CharacterMatchingTests
         builder.Compiled().Build().IsMatch(unpaired).Should().BeTrue();
         builder.Build().IsMatch("a").Should().BeFalse();
     }
+
+    [Test]
+    public void TestLiteralVerticalTabBackslashFormsAndNonBmpCaseFolding()
+    {
+        using var singleVtab = RegexBuilder.Create().StartOfString().Literal("\v").OneOrMore().EndOfString();
+        singleVtab.GetPattern().Should().Be(@"^\v+$");
+        singleVtab.Build().IsMatch("\v\v").Should().BeTrue();
+        singleVtab.Build().IsMatch(" ").Should().BeFalse();
+
+        using var multiVtab = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("\v0")
+            .OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace();
+        multiVtab.GetPattern().Should().Be(@"^(?:\v0)+$");
+        multiVtab.Build().IsMatch("\v0\v0").Should().BeTrue();
+
+        using var escapedBackslashV = RegexBuilder.Create().StartOfString().Literal(@"\v").EndOfString();
+        escapedBackslashV.Build().IsMatch(@"\v").Should().BeTrue();
+        escapedBackslashV.Build().IsMatch("\v").Should().BeFalse();
+
+        using var escapedBackslashZero = RegexBuilder.Create().StartOfString().Literal(@"\0").EndOfString();
+        escapedBackslashZero.Build().IsMatch(@"\0").Should().BeTrue();
+        escapedBackslashZero.Build().IsMatch("\0").Should().BeFalse();
+
+        using var deseret = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("\U00010437")
+            .OneOrMore()
+            .EndOfString();
+        deseret.GetPattern().Should().Be("^(?:\U00010437)+$");
+        deseret.Build().IsMatch("\U00010437\U00010437").Should().BeTrue();
+        deseret.Build().IsMatch("\U00010437\uDC37").Should().BeFalse();
+
+        using var accented = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("café")
+            .OneOrMore()
+            .EndOfString()
+            .IgnoreCase()
+            .CultureInvariant();
+        accented.Build().IsMatch("CAFÉcafé").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestLiteralAllAsciiCharactersRoundTripUnderIgnorePatternWhitespace()
+    {
+        for (int code = 0; code <= 127; code++)
+        {
+            string s = ((char)code).ToString();
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(s)
+                .EndOfString()
+                .IgnorePatternWhitespace();
+
+            var regex = builder.Build();
+            regex.IsMatch(s).Should().BeTrue($"character U+{code:X4} should match itself");
+            string other = code == 'x' ? "y" : "x";
+            regex.IsMatch(other).Should().BeFalse($"character U+{code:X4} should not match '{other}'");
+        }
+    }
 }
