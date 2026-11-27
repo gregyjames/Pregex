@@ -70,8 +70,10 @@ bool isValid = phoneRegex.IsMatch("123-456-7890"); // true
 ```
 
 ### Character Sets
+`Set` and `NotSet` accept regex character class ranges (such as `"a-z0-9"`) and escape sequences (such as `@"\d"` or `@"\-"`), while escaping unescaped `[`, `]`, `^`, trailing `\`, and control characters (`\0`, `\t`, `\n`, `\r`, `\f`, `\v`). Use `Range` when you want a literal `[start-end]` character range without interpreting regex syntax:
 ```csharp
 .Set("abc")           // [abc] - matches a, b, or c
+.Set("a-z0-9")        // [a-z0-9] - matches lowercase letters or digits
 .NotSet("abc")        // [^abc] - matches anything except a, b, or c
 .Range('a', 'z')      // [a-z] - matches any lowercase letter
 ```
@@ -105,7 +107,7 @@ Quantifiers modify the preceding element (multi-character `.Literal(...)` calls 
 // Non-capturing group
 .NonCapturingGroup(b => b.Literal("http").Literal("s").Optional())
 
-// Named group
+// Named group (name must start with a letter or '_', followed by letters, digits, or '_')
 .NamedGroup("area", b => b.Digit().Exactly(3))
 ```
 
@@ -185,8 +187,9 @@ Console.WriteLine(match.Groups["path"].Value);     // "/path"
 ```csharp
 var phoneRegex = RegexBuilder.Create()
     .StartOfString()
-    .Literal("+").Optional()
-    .Group(b => b.Digit().Exactly(3).Literal("-")).Optional()
+    .NonCapturingGroup(b => b.Literal("+").Digit().Between(1, 3).Literal("-")).Optional()
+    .Digit().Exactly(3)
+    .Literal("-").Optional()
     .Digit().Exactly(3)
     .Literal("-").Optional()
     .Digit().Exactly(4)
@@ -277,10 +280,12 @@ RegexOptions options = builder.GetOptions(); // RegexOptions.IgnoreCase | RegexO
 // Convert to string representation
 string representation = builder.ToString(); // @"/^\d+$/IgnoreCase, Multiline"
 
-// Build the final Regex object (optionally with a match timeout)
+// Build the final Regex object (optionally with a positive match timeout or Regex.InfiniteMatchTimeout)
 Regex regex = builder.Build();
 Regex timedRegex = builder.Build(TimeSpan.FromSeconds(2));
 ```
+
+Calling any method other than `Dispose()` after the builder has been disposed throws `ObjectDisposedException`.
 
 ## Best Practices
 
@@ -335,10 +340,11 @@ Because `|` has the lowest precedence in regular expressions, `^cat|dog$` matche
 
 ### 7. Fail-fast validation
 `RegexBuilder` validates inputs eagerly without corrupting the accumulated pattern on error:
-- Quantifiers require a preceding quantifiable element and cannot be chained directly onto another quantifier (use `.Lazy()` for non-greedy matching or wrap in a group).
-- Negative counts in `.Exactly(n)` / `.AtLeast(n)` or `max < min` in `.Between(min, max)` throw `ArgumentOutOfRangeException`.
+- Quantifiers require a preceding quantifiable element and cannot be chained directly onto another quantifier (use `.Lazy()` right after a greedy quantifier for non-greedy matching, or wrap in a group).
+- Negative counts in `.Exactly(n)` / `.AtLeast(n)`, `max < min` in `.Between(min, max)`, and `start > end` in `.Range(start, end)` throw `ArgumentOutOfRangeException`.
 - Invalid `.Set(...)` / `.NotSet(...)` character classes and invalid `.NamedGroup(...)` names throw `ArgumentException`.
-- `null` strings or callbacks throw `ArgumentNullException`, and callbacks that throw roll back any partial group/lookaround output.
+- `null` strings or callbacks throw `ArgumentNullException`, and callbacks that throw roll back any partial group/lookaround output and options.
+- `Build(TimeSpan)` validates that `matchTimeout` is `Regex.InfiniteMatchTimeout` or a positive interval within .NET's supported maximum (`ArgumentOutOfRangeException`).
 
 ## Performance Tips
 
