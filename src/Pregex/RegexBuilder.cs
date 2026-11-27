@@ -81,15 +81,50 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Set(string chars)
     {
         ThrowIfDisposed();
-        _pattern.Append($"[{Regex.Escape(chars).Replace(@"\-", "-")}]");
+        ArgumentException.ThrowIfNullOrEmpty(chars);
+        _pattern.Append('[');
+        AppendEscapedCharacterClass(chars);
+        _pattern.Append(']');
         return this;
     }
 
     public RegexBuilder NotSet(string chars)
     {
         ThrowIfDisposed();
-        _pattern.Append($"[^{Regex.Escape(chars).Replace(@"\-", "-")}]");
+        ArgumentException.ThrowIfNullOrEmpty(chars);
+        _pattern.Append("[^");
+        AppendEscapedCharacterClass(chars);
+        _pattern.Append(']');
         return this;
+    }
+
+    private void AppendEscapedCharacterClass(string chars)
+    {
+        for (int i = 0; i < chars.Length; i++)
+        {
+            char c = chars[i];
+            if (c == '\\')
+            {
+                if (i + 1 < chars.Length)
+                {
+                    _pattern.Append('\\');
+                    _pattern.Append(chars[++i]);
+                }
+                else
+                {
+                    _pattern.Append(@"\\");
+                }
+            }
+            else if (c is ']' or '[' or '^')
+            {
+                _pattern.Append('\\');
+                _pattern.Append(c);
+            }
+            else
+            {
+                _pattern.Append(c);
+            }
+        }
     }
 
     public RegexBuilder Range(char start, char end)
