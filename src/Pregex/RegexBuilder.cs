@@ -52,11 +52,6 @@ public class RegexBuilder : IDisposable
 
     private static bool IsValidGroupName(string name)
     {
-        if (string.IsNullOrEmpty(name))
-        {
-            return false;
-        }
-
         char first = name[0];
         if (!char.IsLetter(first) && first != '_')
         {
