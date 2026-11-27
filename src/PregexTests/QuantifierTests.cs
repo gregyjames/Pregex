@@ -533,4 +533,30 @@ public class QuantifierTests
         using var betweenMaxCompiled = RegexBuilder.Create().Digit().Between(0, int.MaxValue).Compiled();
         betweenMaxCompiled.Build().IsMatch("1").Should().BeTrue();
     }
+
+    [Test]
+    public void TestEmptyLiteralAfterQuantifierPreventsLazyAndFailedOperationsPreserveGreedyState()
+    {
+        using var afterEmptyLiteral = RegexBuilder.Create().Digit().OneOrMore().Literal("");
+        afterEmptyLiteral.Invoking(b => b.Lazy()).Should().Throw<InvalidOperationException>();
+        afterEmptyLiteral.GetPattern().Should().Be(@"\d+");
+
+        using var greedyBuilder = RegexBuilder.Create().Digit().OneOrMore().IgnoreCase();
+        greedyBuilder.Invoking(b => b.Set("z-a")).Should().Throw<ArgumentException>();
+        greedyBuilder.Invoking(b => b.NotSet(@"\c")).Should().Throw<ArgumentException>();
+        greedyBuilder.Invoking(b => b.Range('z', 'a')).Should().Throw<ArgumentOutOfRangeException>();
+        greedyBuilder.Invoking(b => b.Exactly(-1)).Should().Throw<ArgumentOutOfRangeException>();
+        greedyBuilder.Invoking(b => b.Between(5, 2)).Should().Throw<ArgumentOutOfRangeException>();
+        greedyBuilder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("matchTimeout");
+        greedyBuilder.Invoking(b => b.Group(inner =>
+        {
+            inner.Literal("x").Multiline();
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+
+        greedyBuilder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        greedyBuilder.Lazy().GetPattern().Should().Be(@"\d+?");
+        greedyBuilder.Build().Match("123").Value.Should().Be("1");
+    }
 }
