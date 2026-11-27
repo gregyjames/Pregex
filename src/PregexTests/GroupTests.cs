@@ -172,4 +172,48 @@ public class GroupTests
         builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
         builder.Build().IsMatch("XYxy").Should().BeTrue();
     }
+
+    [Test]
+    public void TestNestedNamedGroupsAndOuterDisposeCaughtByOuterCallback()
+    {
+        var nested = RegexBuilder.Create()
+            .NamedGroup("full", b => b
+                .NamedGroup("area", inner => inner.Digit().Exactly(3))
+                .Literal("-")
+                .NamedGroup("line", inner => inner.Digit().Exactly(4)))
+            .Build();
+
+        var match = nested.Match("555-1234");
+        match.Success.Should().BeTrue();
+        match.Groups["full"].Value.Should().Be("555-1234");
+        match.Groups["area"].Value.Should().Be("555");
+        match.Groups["line"].Value.Should().Be("1234");
+
+        var disposedInNested = RegexBuilder.Create().Literal("ab");
+        disposedInNested.Invoking(b => b.Group(outer =>
+        {
+            try
+            {
+                outer.Group(inner => inner.Dispose());
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        })).Should().Throw<ObjectDisposedException>();
+    }
+
+    [Test]
+    public void TestLargePatternRollbackRestoresMultiCharLiteralState()
+    {
+        string prefix = new string('p', 4096);
+        using var builder = RegexBuilder.Create().Literal(prefix).Literal("xy");
+
+        builder.Invoking(b => b.Group(inner =>
+        {
+            inner.Literal(new string('z', 1024));
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+
+        builder.OneOrMore().GetPattern().Should().Be(prefix + "(?:xy)+");
+    }
 }

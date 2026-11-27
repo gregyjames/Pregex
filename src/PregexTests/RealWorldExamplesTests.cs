@@ -220,4 +220,25 @@ public class RealWorldExamplesTests
         regex.IsMatch("1/1/2023").Should().BeFalse();
         regex.IsMatch("12-25-2023").Should().BeFalse();
     }
+
+    [Test]
+    public void TestPhoneWithOptionalCountryCodeMatchesReadmeExample()
+    {
+        var phoneRegex = RegexBuilder.Create()
+            .StartOfString()
+            .NonCapturingGroup(b => b.Literal("+").Digit().Between(1, 3).Literal("-")).Optional()
+            .Digit().Exactly(3)
+            .Literal("-").Optional()
+            .Digit().Exactly(3)
+            .Literal("-").Optional()
+            .Digit().Exactly(4)
+            .EndOfString()
+            .Build();
+
+        phoneRegex.IsMatch("123-456-7890").Should().BeTrue();
+        phoneRegex.IsMatch("+1-123-456-7890").Should().BeTrue();
+        phoneRegex.IsMatch("1234567890").Should().BeTrue();
+        phoneRegex.IsMatch("+1-123-456").Should().BeFalse();
+        phoneRegex.IsMatch("123-456").Should().BeFalse();
+    }
 }

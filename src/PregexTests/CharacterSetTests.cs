@@ -346,4 +346,57 @@ public class CharacterSetTests
 
         nullOnly.Invoking(b => b.Range('a', '-')).Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Test]
+    public void TestSetAndNotSetEscapeBackslashFollowedByControlCharacters()
+    {
+        using var setBuilder = RegexBuilder.Create().Set("\\\0\\\t\\\n\\\r\\\f\\\v");
+        setBuilder.GetPattern().Should().Be(@"[\x00\t\n\r\f\v]");
+        var setRegex = setBuilder.Build();
+        setRegex.IsMatch("\0").Should().BeTrue();
+        setRegex.IsMatch("\t").Should().BeTrue();
+        setRegex.IsMatch("\n").Should().BeTrue();
+        setRegex.IsMatch("\r").Should().BeTrue();
+        setRegex.IsMatch("\f").Should().BeTrue();
+        setRegex.IsMatch("\v").Should().BeTrue();
+        setRegex.IsMatch(@"\").Should().BeFalse();
+
+        using var notSetBuilder = RegexBuilder.Create().NotSet("\\\0\\\n");
+        notSetBuilder.GetPattern().Should().Be(@"[^\x00\n]");
+        var notSetRegex = notSetBuilder.Build();
+        notSetRegex.IsMatch("\0").Should().BeFalse();
+        notSetRegex.IsMatch("\n").Should().BeFalse();
+        notSetRegex.IsMatch(@"\").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestSetSupportsUnicodePropertiesHexEscapesAndMultiRanges()
+    {
+        var unicodeProp = RegexBuilder.Create().Set(@"\p{Lu}").Build();
+        unicodeProp.IsMatch("A").Should().BeTrue();
+        unicodeProp.IsMatch("a").Should().BeFalse();
+
+        var hexRange = RegexBuilder.Create().Set(@"\x41-\x5A").Build();
+        hexRange.IsMatch("M").Should().BeTrue();
+        hexRange.IsMatch("m").Should().BeFalse();
+
+        var multiRange = RegexBuilder.Create().Set("a-b-c").Build();
+        multiRange.IsMatch("a").Should().BeTrue();
+        multiRange.IsMatch("-").Should().BeTrue();
+        multiRange.IsMatch("c").Should().BeTrue();
+        multiRange.IsMatch("d").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestRangeSurrogateBoundsWithCompiled()
+    {
+        var regex = RegexBuilder.Create()
+            .Range('\uD800', '\uDFFF')
+            .Compiled()
+            .Build();
+
+        regex.IsMatch("\uD800").Should().BeTrue();
+        regex.IsMatch("\uDFFF").Should().BeTrue();
+        regex.IsMatch("a").Should().BeFalse();
+    }
 }

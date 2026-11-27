@@ -178,14 +178,45 @@ public class CharacterMatchingTests
     public void TestLiteralNullCharFollowedByDigitsAndQuantifier()
     {
         using var literalNullZero = RegexBuilder.Create().StartOfString().Literal("\0").Literal("0").EndOfString();
+        literalNullZero.GetPattern().Should().Be(@"^\x000$");
         var nullZeroRegex = literalNullZero.Build();
         nullZeroRegex.IsMatch("\00").Should().BeTrue();
         nullZeroRegex.IsMatch("\0").Should().BeFalse();
 
         using var quantifiedNull = RegexBuilder.Create().StartOfString().Literal("\0").OneOrMore().EndOfString();
+        quantifiedNull.GetPattern().Should().Be(@"^\x00+$");
         var quantifiedRegex = quantifiedNull.Build();
         quantifiedRegex.IsMatch("\0").Should().BeTrue();
         quantifiedRegex.IsMatch("\0\0\0").Should().BeTrue();
         quantifiedRegex.IsMatch("a").Should().BeFalse();
+
+        using var multiCharNull = RegexBuilder.Create().StartOfString().Literal("\0a").OneOrMore().EndOfString();
+        multiCharNull.GetPattern().Should().Be(@"^(?:\x00a)+$");
+        multiCharNull.Build().IsMatch("\0a\0a").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestLiteralUnicodeWhitespaceUnderIgnorePatternWhitespace()
+    {
+        const string unicodeSpaces = "\u00A0\u2003\u3000";
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Literal(unicodeSpaces)
+            .EndOfString()
+            .IgnorePatternWhitespace();
+
+        var regex = builder.Build();
+        regex.IsMatch(unicodeSpaces).Should().BeTrue();
+        regex.IsMatch("").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestLiteralUnpairedSurrogateMatchesLiterallyWithAndWithoutCompiled()
+    {
+        const string unpaired = "\uD800";
+        using var builder = RegexBuilder.Create().StartOfString().Literal(unpaired).EndOfString();
+        builder.Build().IsMatch(unpaired).Should().BeTrue();
+        builder.Compiled().Build().IsMatch(unpaired).Should().BeTrue();
+        builder.Build().IsMatch("a").Should().BeFalse();
     }
 }

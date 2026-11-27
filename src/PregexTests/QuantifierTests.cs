@@ -259,6 +259,7 @@ public class QuantifierTests
         using var exactlyMax = RegexBuilder.Create().Digit().Exactly(int.MaxValue);
         exactlyMax.GetPattern().Should().Be($@"\d{{{int.MaxValue}}}");
         exactlyMax.Build().IsMatch("1").Should().BeFalse();
+        exactlyMax.Compiled().Build().IsMatch("1").Should().BeFalse();
 
         using var atLeastMax = RegexBuilder.Create().Digit().AtLeast(int.MaxValue);
         atLeastMax.GetPattern().Should().Be($@"\d{{{int.MaxValue},}}");
@@ -267,5 +268,36 @@ public class QuantifierTests
         using var betweenMax = RegexBuilder.Create().Digit().Between(0, int.MaxValue);
         betweenMax.GetPattern().Should().Be($@"\d{{0,{int.MaxValue}}}");
         betweenMax.Build().IsMatch("1").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestMultiCharLiteralQuantifierDoesNotCreateCaptureGroup()
+    {
+        var regex = RegexBuilder.Create()
+            .Literal("ab").OneOrMore()
+            .Group(b => b.Digit().OneOrMore())
+            .Build();
+
+        var match = regex.Match("abab42");
+        match.Success.Should().BeTrue();
+        match.Groups.Count.Should().Be(2);
+        match.Groups[1].Value.Should().Be("42");
+    }
+
+    [TestCase(255)]
+    [TestCase(512)]
+    [TestCase(4096)]
+    public void TestMultiCharLiteralQuantifierWrappingAcrossBufferBoundaries(int prefixLength)
+    {
+        string prefix = new string('x', prefixLength);
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Literal(prefix)
+            .Literal("ab").OneOrMore()
+            .EndOfString();
+
+        var regex = builder.Build();
+        regex.IsMatch(prefix + "abab").Should().BeTrue();
+        regex.IsMatch(prefix + "abb").Should().BeFalse();
     }
 }

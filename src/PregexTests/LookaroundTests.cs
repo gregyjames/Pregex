@@ -96,4 +96,17 @@ public class LookaroundTests
         using var afterLookbehind = RegexBuilder.Create().PositiveLookbehind(b => b.Literal("$"));
         afterLookbehind.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
     }
+
+    [Test]
+    public void TestLookaroundWithAlternationAndRightToLeft()
+    {
+        var regex = RegexBuilder.Create()
+            .PositiveLookbehind(b => b.Literal("$").Or().Literal("EUR "))
+            .Digit().OneOrMore()
+            .NegativeLookahead(b => b.Literal(".").Or().Digit())
+            .RightToLeft()
+            .Build();
+
+        regex.Match("Price: $10, EUR 25, $30.5").Value.Should().Be("25");
+    }
 }

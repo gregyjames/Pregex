@@ -106,7 +106,25 @@ public class PatternBuildingTests
 
         builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ArgumentOutOfRangeException>();
         builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(-2))).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.MinValue)).Should().Throw<ArgumentOutOfRangeException>();
         builder.Invoking(b => b.Build(TimeSpan.MaxValue)).Should().Throw<ArgumentOutOfRangeException>();
+
+        var smallestPositive = builder.Build(TimeSpan.FromTicks(1));
+        smallestPositive.MatchTimeout.Should().Be(TimeSpan.FromTicks(1));
+
+        var maxSupported = builder.Build(TimeSpan.FromMilliseconds(int.MaxValue - 1));
+        maxSupported.MatchTimeout.Should().Be(TimeSpan.FromMilliseconds(int.MaxValue - 1));
+
+        builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(int.MaxValue))).Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public void TestEmptyBuilderMetadata()
+    {
+        using var builder = RegexBuilder.Create();
+        builder.GetPattern().Should().Be("");
+        builder.GetOptions().Should().Be(RegexOptions.None);
+        builder.ToString().Should().Be("//None");
     }
 
     [Test]
