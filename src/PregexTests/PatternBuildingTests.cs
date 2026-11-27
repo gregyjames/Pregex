@@ -116,6 +116,10 @@ public class PatternBuildingTests
         maxSupported.MatchTimeout.Should().Be(TimeSpan.FromMilliseconds(int.MaxValue - 1));
 
         builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(int.MaxValue))).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.FromTicks(-1))).Should().Throw<ArgumentOutOfRangeException>();
+
+        var equivalentInfinite = builder.Build(TimeSpan.FromMilliseconds(-1));
+        equivalentInfinite.MatchTimeout.Should().Be(Regex.InfiniteMatchTimeout);
     }
 
     [Test]

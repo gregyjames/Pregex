@@ -838,4 +838,36 @@ public class CharacterSetTests
         invalidEscapeBuilder.GetPattern().Should().Be("ab");
         invalidEscapeBuilder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
     }
+
+    [Test]
+    public void TestRangeOutOfOrderIncludesActualValueAndEscapedClassRangesMatch()
+    {
+        using var rangeBuilder = RegexBuilder.Create().Literal("ab").IgnoreCase();
+        var ex = rangeBuilder.Invoking(b => b.Range('z', 'a')).Should().Throw<ArgumentOutOfRangeException>().Which;
+        ex.ParamName.Should().Be("start");
+        ex.ActualValue.Should().Be('z');
+        rangeBuilder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        rangeBuilder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+
+        var hexHyphenRange = RegexBuilder.Create().StartOfString().Set(@"\x2D-9").EndOfString().Build();
+        hexHyphenRange.IsMatch("-").Should().BeTrue();
+        hexHyphenRange.IsMatch("0").Should().BeTrue();
+        hexHyphenRange.IsMatch("9").Should().BeTrue();
+        hexHyphenRange.IsMatch("a").Should().BeFalse();
+
+        var escapedHyphenLiteralAndNine = RegexBuilder.Create().StartOfString().Set(@"\--9").EndOfString().Build();
+        escapedHyphenLiteralAndNine.IsMatch("-").Should().BeTrue();
+        escapedHyphenLiteralAndNine.IsMatch("9").Should().BeTrue();
+        escapedHyphenLiteralAndNine.IsMatch("0").Should().BeFalse();
+
+        var escapedBracketRange = RegexBuilder.Create().StartOfString().Set(@"\[-\]").EndOfString().Build();
+        escapedBracketRange.IsMatch("[").Should().BeTrue();
+        escapedBracketRange.IsMatch(@"\").Should().BeTrue();
+        escapedBracketRange.IsMatch("]").Should().BeTrue();
+        escapedBracketRange.IsMatch("a").Should().BeFalse();
+
+        var caretIdentityRange = RegexBuilder.Create().StartOfString().NotSet(@"\^-\^").EndOfString().Build();
+        caretIdentityRange.IsMatch("^").Should().BeFalse();
+        caretIdentityRange.IsMatch("a").Should().BeTrue();
+    }
 }

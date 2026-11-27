@@ -113,4 +113,29 @@ public class AlternationTests
 
         greedy.Match("abab").Value.Should().Be("abab");
     }
+
+    [Test]
+    public void TestNestedAlternationWithGroupsAndLookarounds()
+    {
+        var regex = RegexBuilder.Create()
+            .StartOfString()
+            .Group(b => b
+                .NonCapturingGroup(inner => inner.Literal("cat").Or().Literal("dog"))
+                .Or()
+                .NamedGroup("bird", inner => inner.Literal("owl").Or().Literal("jay")))
+            .PositiveLookahead(b => b.Literal("!").Or().Literal("?"))
+            .Build();
+
+        var birdMatch = regex.Match("owl?");
+        birdMatch.Success.Should().BeTrue();
+        birdMatch.Groups[1].Value.Should().Be("owl");
+        birdMatch.Groups["bird"].Value.Should().Be("owl");
+
+        var catMatch = regex.Match("cat!");
+        catMatch.Success.Should().BeTrue();
+        catMatch.Groups[1].Value.Should().Be("cat");
+        catMatch.Groups["bird"].Success.Should().BeFalse();
+
+        regex.IsMatch("cat.").Should().BeFalse();
+    }
 }

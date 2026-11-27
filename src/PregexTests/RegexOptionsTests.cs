@@ -233,4 +233,17 @@ public class RegexOptionsTests
         match.Groups.Count.Should().Be(2);
         match.Groups["val"].Value.Should().Be("a\nb");
     }
+
+    [Test]
+    public void TestRepeatedOptionCallsAreIdempotent()
+    {
+        using var builder = RegexBuilder.Create()
+            .Literal("abc")
+            .IgnoreCase().IgnoreCase()
+            .Multiline().Multiline()
+            .Compiled().Compiled();
+
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled);
+        builder.Build().IsMatch("ABC").Should().BeTrue();
+    }
 }

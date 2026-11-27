@@ -481,4 +481,56 @@ public class QuantifierTests
         builder.GetPattern().Should().Be("ab");
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
     }
+
+    [Test]
+    public void TestFailedLazyOnMultiCharLiteralPreservesMultiCharStateAndOptionsAfterNonQuantifiables()
+    {
+        using var multiChar = RegexBuilder.Create().Literal("ab").IgnoreCase();
+        multiChar.Invoking(b => b.Lazy()).Should().Throw<InvalidOperationException>();
+        multiChar.GetPattern().Should().Be("ab");
+        multiChar.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        multiChar.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+        multiChar.Build().IsMatch("ABab").Should().BeTrue();
+
+        Action<RegexBuilder>[] nonQuantifiables =
+        [
+            b => b.StartOfString(),
+            b => b.EndOfString(),
+            b => b.WordBoundary(),
+            b => b.NotWordBoundary(),
+            b => b.Or(),
+            b => b.PositiveLookahead(inner => inner.Digit()),
+            b => b.NegativeLookahead(inner => inner.Digit()),
+            b => b.PositiveLookbehind(inner => inner.Digit()),
+            b => b.NegativeLookbehind(inner => inner.Digit()),
+            b => b.Literal(""),
+        ];
+
+        foreach (var op in nonQuantifiables)
+        {
+            using var builder = RegexBuilder.Create().Literal("ab");
+            op(builder);
+            builder.IgnoreCase().Multiline();
+            builder.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+        }
+    }
+
+    [Test]
+    public void TestMultiCharZeroAndBoundedLazyAndIntMaxCompiledQuantifiers()
+    {
+        using var multiZeroLazy = RegexBuilder.Create().StartOfString().Literal("ab").Exactly(0).Lazy().EndOfString().Compiled();
+        multiZeroLazy.GetPattern().Should().Be(@"^(?:ab){0}?$");
+        multiZeroLazy.Build().IsMatch("").Should().BeTrue();
+        multiZeroLazy.Build().IsMatch("ab").Should().BeFalse();
+
+        using var multiBetweenLazy = RegexBuilder.Create().Literal("ab").Between(0, 2).Lazy().Compiled();
+        multiBetweenLazy.GetPattern().Should().Be("(?:ab){0,2}?");
+        multiBetweenLazy.Build().Match("abab").Value.Should().Be("");
+
+        using var atLeastMaxCompiled = RegexBuilder.Create().Digit().AtLeast(int.MaxValue).Compiled();
+        atLeastMaxCompiled.Build().IsMatch("1").Should().BeFalse();
+
+        using var betweenMaxCompiled = RegexBuilder.Create().Digit().Between(0, int.MaxValue).Compiled();
+        betweenMaxCompiled.Build().IsMatch("1").Should().BeTrue();
+    }
 }
