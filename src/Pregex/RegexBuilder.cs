@@ -137,6 +137,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="str">The literal text to match.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Special regex metacharacters, whitespace, <c>#</c>, vertical tabs (<c>\v</c>), and null characters (<c>\x00</c>)
+    /// are escaped so the input matches literally even when <see cref="RegexOptions.IgnorePatternWhitespace"/> is enabled.
+    /// Multi-character literals are automatically wrapped in a non-capturing group (<c>(?:...)</c>) if quantified.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="str"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Literal(string str)
@@ -158,6 +163,11 @@ public class RegexBuilder : IDisposable
         if (escaped.IndexOf('\v') >= 0)
         {
             escaped = escaped.Replace("\v", @"\v");
+        }
+
+        if (escaped.IndexOf('\0') >= 0)
+        {
+            escaped = escaped.Replace("\0", @"\x00");
         }
 
         if (str.Length > 1)
@@ -279,6 +289,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="chars">The characters or ranges to include in the character class.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c> or <c>@"\-"</c>).
+    /// Unescaped <c>[</c>, <c>]</c>, <c>^</c>, trailing <c>\</c>, and control characters (<c>\0</c>, <c>\t</c>, <c>\n</c>, <c>\r</c>, <c>\f</c>, <c>\v</c>)
+    /// are automatically escaped.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
@@ -292,6 +307,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="chars">The characters or ranges to exclude from matching.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c> or <c>@"\-"</c>).
+    /// Unescaped <c>[</c>, <c>]</c>, <c>^</c>, trailing <c>\</c>, and control characters (<c>\0</c>, <c>\t</c>, <c>\n</c>, <c>\r</c>, <c>\f</c>, <c>\v</c>)
+    /// are automatically escaped.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
@@ -343,8 +363,16 @@ public class RegexBuilder : IDisposable
             {
                 if (i + 1 < chars.Length)
                 {
-                    target.Append('\\');
-                    target.Append(chars[++i]);
+                    char next = chars[++i];
+                    if (next is '\0' or '\t' or '\n' or '\r' or '\f' or '\v')
+                    {
+                        AppendCharOrControlEscape(ref target, next);
+                    }
+                    else
+                    {
+                        target.Append('\\');
+                        target.Append(next);
+                    }
                 }
                 else
                 {
@@ -642,6 +670,10 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Group(Action<RegexBuilder> callback)
@@ -660,6 +692,10 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NonCapturingGroup(Action<RegexBuilder> callback)
@@ -679,6 +715,11 @@ public class RegexBuilder : IDisposable
     /// <param name="name">The capture group name.</param>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Group names must start with a letter or underscore and contain only letters, digits, or underscores.
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> or <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="name"/> is empty or not a valid .NET regex group name.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
@@ -731,6 +772,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookahead pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Lookarounds are zero-width assertions and cannot be directly quantified.
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder PositiveLookahead(Action<RegexBuilder> callback)
@@ -749,6 +795,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookahead pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Lookarounds are zero-width assertions and cannot be directly quantified.
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NegativeLookahead(Action<RegexBuilder> callback)
@@ -767,6 +818,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookbehind pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Lookarounds are zero-width assertions and cannot be directly quantified.
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder PositiveLookbehind(Action<RegexBuilder> callback)
@@ -785,6 +841,11 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookbehind pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Lookarounds are zero-width assertions and cannot be directly quantified.
+    /// If <paramref name="callback"/> throws an exception (and does not dispose the builder),
+    /// any partial pattern, quantifier state, and options modified during the callback are rolled back.
+    /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NegativeLookbehind(Action<RegexBuilder> callback)
