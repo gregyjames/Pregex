@@ -285,4 +285,23 @@ public class RealWorldExamplesTests
         passwordRegex.IsMatch("password").Should().BeFalse();
         passwordRegex.IsMatch("Pass1").Should().BeFalse();
     }
+
+    [Test]
+    public void TestReadmeQuickStartPhoneExample()
+    {
+        var phoneRegex = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("+").Optional()
+            .Digit().Exactly(3)
+            .Literal("-").Optional()
+            .Digit().Exactly(3)
+            .Literal("-").Optional()
+            .Digit().Exactly(4)
+            .EndOfString()
+            .Build();
+
+        phoneRegex.IsMatch("123-456-7890").Should().BeTrue();
+        phoneRegex.IsMatch("+1234567890").Should().BeTrue();
+        phoneRegex.IsMatch("123-45-6789").Should().BeFalse();
+    }
 }

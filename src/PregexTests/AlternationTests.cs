@@ -94,4 +94,23 @@ public class AlternationTests
         regex.IsMatch("abab").Should().BeFalse();
         regex.IsMatch("cdcd").Should().BeTrue();
     }
+
+    [Test]
+    public void TestQuantifiedLazyGroupWithAlternation()
+    {
+        var regex = RegexBuilder.Create()
+            .NonCapturingGroup(b => b.Literal("ab").Or().Literal("a"))
+            .OneOrMore()
+            .Lazy()
+            .Build();
+
+        regex.Match("abab").Value.Should().Be("ab");
+
+        var greedy = RegexBuilder.Create()
+            .NonCapturingGroup(b => b.Literal("ab").Or().Literal("a"))
+            .OneOrMore()
+            .Build();
+
+        greedy.Match("abab").Value.Should().Be("abab");
+    }
 }
