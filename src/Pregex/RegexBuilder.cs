@@ -6,6 +6,9 @@ namespace Pregex;
 /// <summary>
 /// A fluent, chainable builder for constructing <see cref="Regex"/> instances.
 /// </summary>
+/// <remarks>
+/// Instances are mutable and not thread-safe. Dispose each builder when finished to return its pooled pattern buffer.
+/// </remarks>
 public class RegexBuilder : IDisposable
 {
     private enum LastTokenKind
