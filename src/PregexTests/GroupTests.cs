@@ -87,6 +87,7 @@ public class GroupTests
     [TestCase("a>b")]
     [TestCase("a b")]
     [TestCase("a.b")]
+    [TestCase("a\u0301")]
     public void TestNamedGroupInvalidNamesThrowArgumentExceptionWithoutCorruptingBuilder(string invalidName)
     {
         using var builder = RegexBuilder.Create().Literal("prefix");
@@ -102,6 +103,7 @@ public class GroupTests
         builder.GetPattern().Should().Be("prefix");
     }
 
+    [TestCase("_")]
     [TestCase("_a")]
     [TestCase("a1")]
     [TestCase("café")]
@@ -141,5 +143,33 @@ public class GroupTests
         AddDepth(nested, 25);
         nested.Build().IsMatch("7").Should().BeTrue();
         nested.Dispose();
+    }
+
+    [Test]
+    public void TestNestedGroupExceptionCaughtByOuterCallbackRestoresInnerStateAndOptions()
+    {
+        using var builder = RegexBuilder.Create().IgnoreCase();
+
+        builder.Group(outer =>
+        {
+            outer.Literal("xy");
+            try
+            {
+                outer.NonCapturingGroup(inner =>
+                {
+                    inner.Digit().Multiline();
+                    throw new InvalidOperationException("inner boom");
+                });
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            outer.OneOrMore();
+        });
+
+        builder.GetPattern().Should().Be("((?:xy)+)");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        builder.Build().IsMatch("XYxy").Should().BeTrue();
     }
 }

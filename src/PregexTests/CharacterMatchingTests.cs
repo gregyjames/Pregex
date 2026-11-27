@@ -173,4 +173,19 @@ public class CharacterMatchingTests
         regex.IsMatch(large + large).Should().BeTrue();
         regex.IsMatch(large).Should().BeFalse();
     }
+
+    [Test]
+    public void TestLiteralNullCharFollowedByDigitsAndQuantifier()
+    {
+        using var literalNullZero = RegexBuilder.Create().StartOfString().Literal("\0").Literal("0").EndOfString();
+        var nullZeroRegex = literalNullZero.Build();
+        nullZeroRegex.IsMatch("\00").Should().BeTrue();
+        nullZeroRegex.IsMatch("\0").Should().BeFalse();
+
+        using var quantifiedNull = RegexBuilder.Create().StartOfString().Literal("\0").OneOrMore().EndOfString();
+        var quantifiedRegex = quantifiedNull.Build();
+        quantifiedRegex.IsMatch("\0").Should().BeTrue();
+        quantifiedRegex.IsMatch("\0\0\0").Should().BeTrue();
+        quantifiedRegex.IsMatch("a").Should().BeFalse();
+    }
 }

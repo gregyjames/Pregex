@@ -315,4 +315,35 @@ public class CharacterSetTests
         rangeRegex.Build().IsMatch("\v").Should().BeTrue();
         rangeRegex.Build().IsMatch("a").Should().BeFalse();
     }
+
+    [Test]
+    public void TestSetAndNotSetEscapeNullCharFollowedByHexDigits()
+    {
+        using var setBuilder = RegexBuilder.Create().Set("\0fA");
+        setBuilder.GetPattern().Should().Be(@"[\x00fA]");
+        var setRegex = setBuilder.Build();
+        setRegex.IsMatch("\0").Should().BeTrue();
+        setRegex.IsMatch("f").Should().BeTrue();
+        setRegex.IsMatch("A").Should().BeTrue();
+        setRegex.IsMatch("a").Should().BeFalse();
+
+        using var notSetBuilder = RegexBuilder.Create().NotSet("\0fA");
+        notSetBuilder.GetPattern().Should().Be(@"[^\x00fA]");
+        var notSetRegex = notSetBuilder.Build();
+        notSetRegex.IsMatch("\0").Should().BeFalse();
+        notSetRegex.IsMatch("f").Should().BeFalse();
+        notSetRegex.IsMatch("A").Should().BeFalse();
+        notSetRegex.IsMatch("b").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestRangeNullBoundaryAndInvertedHyphenThrows()
+    {
+        using var nullOnly = RegexBuilder.Create().Range('\0', '\0');
+        nullOnly.GetPattern().Should().Be(@"[\x00-\x00]");
+        nullOnly.Build().IsMatch("\0").Should().BeTrue();
+        nullOnly.Build().IsMatch("a").Should().BeFalse();
+
+        nullOnly.Invoking(b => b.Range('a', '-')).Should().Throw<ArgumentOutOfRangeException>();
+    }
 }

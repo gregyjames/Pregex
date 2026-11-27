@@ -133,4 +133,21 @@ public class RegexOptionsTests
             CultureInfo.CurrentCulture = original;
         }
     }
+
+    [Test]
+    public void TestRightToLeftWithNamedGroupAndAnchors()
+    {
+        var regex = RegexBuilder.Create()
+            .NamedGroup("num", b => b.Digit().OneOrMore())
+            .Literal("-")
+            .NamedGroup("word", b => b.Word().OneOrMore())
+            .RightToLeft()
+            .Build();
+
+        var match = regex.Match("12-ab 34-cd");
+        match.Success.Should().BeTrue();
+        match.Value.Should().Be("34-cd");
+        match.Groups["num"].Value.Should().Be("34");
+        match.Groups["word"].Value.Should().Be("cd");
+    }
 }
