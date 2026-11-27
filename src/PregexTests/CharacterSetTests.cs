@@ -917,4 +917,88 @@ public class CharacterSetTests
         bracketAndCaretPositions.IsMatch("a").Should().BeTrue();
         bracketAndCaretPositions.IsMatch("c").Should().BeFalse();
     }
+
+    [Test]
+    public void TestSetAndNotSetSingleMetacharactersAndHyphenEdgeCases()
+    {
+        foreach (string spec in new[] { "]", "[", "^", "-" })
+        {
+            using var setBuilder = RegexBuilder.Create().StartOfString().Set(spec).EndOfString();
+            var setRegex = setBuilder.Build();
+            setRegex.IsMatch(spec).Should().BeTrue();
+            setRegex.IsMatch("a").Should().BeFalse();
+
+            using var notSetBuilder = RegexBuilder.Create().StartOfString().NotSet(spec).EndOfString();
+            var notSetRegex = notSetBuilder.Build();
+            notSetRegex.IsMatch(spec).Should().BeFalse();
+            notSetRegex.IsMatch("a").Should().BeTrue();
+        }
+
+        using var doubleHyphen = RegexBuilder.Create().StartOfString().Set("--").EndOfString();
+        doubleHyphen.Build().IsMatch("-").Should().BeTrue();
+        doubleHyphen.Build().IsMatch("a").Should().BeFalse();
+
+        using var hyphenRangeAfterLeadingHyphen = RegexBuilder.Create().StartOfString().Set("---a").EndOfString();
+        var rangeRegex = hyphenRangeAfterLeadingHyphen.Build();
+        rangeRegex.IsMatch("-").Should().BeTrue();
+        rangeRegex.IsMatch("a").Should().BeTrue();
+        rangeRegex.IsMatch("0").Should().BeFalse();
+        rangeRegex.IsMatch("b").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestSetControlEscapeBackslashFollowedByBracketCaretAndRange()
+    {
+        using var fsAndLeftBracket = RegexBuilder.Create().StartOfString().Set(@"\c\[").EndOfString();
+        fsAndLeftBracket.GetPattern().Should().Be(@"^[\c\\[]$");
+        fsAndLeftBracket.Build().IsMatch("\x1C").Should().BeTrue();
+        fsAndLeftBracket.Build().IsMatch("[").Should().BeTrue();
+        fsAndLeftBracket.Build().IsMatch("a").Should().BeFalse();
+
+        using var fsAndCaret = RegexBuilder.Create().StartOfString().Set(@"\c\^").EndOfString();
+        fsAndCaret.GetPattern().Should().Be(@"^[\c\\^]$");
+        fsAndCaret.Build().IsMatch("\x1C").Should().BeTrue();
+        fsAndCaret.Build().IsMatch("^").Should().BeTrue();
+        fsAndCaret.Build().IsMatch("a").Should().BeFalse();
+
+        using var fsToRightBracketRange = RegexBuilder.Create().StartOfString().Set(@"\c\-]").EndOfString();
+        fsToRightBracketRange.GetPattern().Should().Be(@"^[\c\-\]]$");
+        fsToRightBracketRange.Build().IsMatch("\x1C").Should().BeTrue();
+        fsToRightBracketRange.Build().IsMatch("A").Should().BeTrue();
+        fsToRightBracketRange.Build().IsMatch("]").Should().BeTrue();
+        fsToRightBracketRange.Build().IsMatch("^").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestSetCombinedShorthandsOctalBoundaryAndCultureInvariantIgnoreCase()
+    {
+        var shorthands = RegexBuilder.Create().StartOfString().Set(@"\d\s").EndOfString().Build();
+        shorthands.IsMatch("7").Should().BeTrue();
+        shorthands.IsMatch(" ").Should().BeTrue();
+        shorthands.IsMatch("a").Should().BeFalse();
+
+        var octalNullAndEight = RegexBuilder.Create().StartOfString().Set(@"\08").EndOfString().Build();
+        octalNullAndEight.IsMatch("\0").Should().BeTrue();
+        octalNullAndEight.IsMatch("8").Should().BeTrue();
+        octalNullAndEight.IsMatch("0").Should().BeFalse();
+
+        var originalCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+            var caseInsensitive = RegexBuilder.Create()
+                .StartOfString()
+                .Set("a-z")
+                .EndOfString()
+                .IgnoreCase()
+                .CultureInvariant()
+                .Build();
+            caseInsensitive.IsMatch("I").Should().BeTrue();
+            caseInsensitive.IsMatch("\u0130").Should().BeFalse();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
 }

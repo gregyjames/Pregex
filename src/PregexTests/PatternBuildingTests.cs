@@ -163,4 +163,37 @@ public class PatternBuildingTests
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
         builder.Build(TimeSpan.FromSeconds(1)).IsMatch("ABab").Should().BeTrue();
     }
+
+    [Test]
+    public void TestBuildWithShortTimeoutThrowsRegexMatchTimeoutExceptionOnBacktrackingInput()
+    {
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Group(b => b.Literal("a").OneOrMore()).OneOrMore()
+            .Literal("b")
+            .EndOfString();
+
+        var regex = builder.Build(TimeSpan.FromMilliseconds(10));
+        string pathological = new string('a', 30) + "c";
+
+        Action act = () => _ = regex.IsMatch(pathological);
+        act.Should().Throw<RegexMatchTimeoutException>();
+    }
+
+    [Test]
+    public void TestReadmeUtilityMethodsSnippetMatchesDocumentedOutputs()
+    {
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Digit().OneOrMore()
+            .EndOfString()
+            .IgnoreCase()
+            .Multiline();
+
+        builder.GetPattern().Should().Be(@"^\d+$");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        builder.ToString().Should().Be(@"/^\d+$/IgnoreCase, Multiline");
+        builder.Build().IsMatch("123").Should().BeTrue();
+        builder.Build(TimeSpan.FromSeconds(2)).MatchTimeout.Should().Be(TimeSpan.FromSeconds(2));
+    }
 }

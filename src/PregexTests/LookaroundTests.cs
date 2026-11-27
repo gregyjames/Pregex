@@ -162,4 +162,20 @@ public class LookaroundTests
                 .Should().Throw<ObjectDisposedException>();
         }
     }
+
+    [Test]
+    public void TestVariableLengthLookbehindWithOptionsAndTrailingMultiCharQuantifier()
+    {
+        using var builder = RegexBuilder.Create()
+            .PositiveLookbehind(b => b.Literal("id=").Digit().OneOrMore().Literal(":"))
+            .NegativeLookbehind(b => b.Literal("skip:").Digit().OneOrMore().Literal(":"))
+            .Literal("ab").OneOrMore()
+            .IgnoreCase()
+            .Multiline();
+
+        var regex = builder.Build();
+        regex.Match("id=42:ABab").Value.Should().Be("ABab");
+        regex.IsMatch("skip:42:ab").Should().BeFalse();
+        regex.IsMatch("other:ab").Should().BeFalse();
+    }
 }

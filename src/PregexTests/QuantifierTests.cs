@@ -559,4 +559,28 @@ public class QuantifierTests
         greedyBuilder.Lazy().GetPattern().Should().Be(@"\d+?");
         greedyBuilder.Build().Match("123").Value.Should().Be("1");
     }
+
+    [Test]
+    public void TestAllQuantifiablePrimitivesWithQuantifiersAndLazy()
+    {
+        RegexBuilder.Create().Word().OneOrMore().GetPattern().Should().Be(@"\w+");
+        RegexBuilder.Create().Whitespace().ZeroOrMore().GetPattern().Should().Be(@"\s*");
+        RegexBuilder.Create().NotDigit().Optional().GetPattern().Should().Be(@"\D?");
+        RegexBuilder.Create().NotWord().Exactly(1).GetPattern().Should().Be(@"\W{1}");
+        RegexBuilder.Create().NotWhitespace().AtLeast(1).GetPattern().Should().Be(@"\S{1,}");
+        RegexBuilder.Create().AnyChar().Between(0, 1).GetPattern().Should().Be(".{0,1}");
+        RegexBuilder.Create().Set("ab").Between(3, 3).GetPattern().Should().Be("[ab]{3,3}");
+        RegexBuilder.Create().NotSet("ab").OneOrMore().GetPattern().Should().Be("[^ab]+");
+        RegexBuilder.Create().Range('a', 'c').AtLeast(2).GetPattern().Should().Be("[a-c]{2,}");
+
+        RegexBuilder.Create().Literal("ab").ZeroOrMore().Lazy().GetPattern().Should().Be("(?:ab)*?");
+        RegexBuilder.Create().Literal("ab").Optional().Lazy().GetPattern().Should().Be("(?:ab)??");
+        RegexBuilder.Create().Literal("ab").Exactly(2).Lazy().GetPattern().Should().Be("(?:ab){2}?");
+        RegexBuilder.Create().Literal("ab").AtLeast(2).Lazy().GetPattern().Should().Be("(?:ab){2,}?");
+
+        using var bounded = RegexBuilder.Create().Literal("ab").Between(1, 3);
+        bounded.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+        bounded.Invoking(b => b.Between(1, 2)).Should().Throw<InvalidOperationException>();
+        bounded.GetPattern().Should().Be("(?:ab){1,3}");
+    }
 }
