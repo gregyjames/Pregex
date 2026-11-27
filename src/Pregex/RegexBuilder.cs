@@ -81,22 +81,108 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Set(string chars)
     {
         ThrowIfDisposed();
-        _pattern.Append($"[{Regex.Escape(chars).Replace(@"\-", "-")}]");
+        ArgumentException.ThrowIfNullOrEmpty(chars);
+        _pattern.Append('[');
+        AppendEscapedCharacterClass(chars);
+        _pattern.Append(']');
         return this;
     }
 
     public RegexBuilder NotSet(string chars)
     {
         ThrowIfDisposed();
-        _pattern.Append($"[^{Regex.Escape(chars).Replace(@"\-", "-")}]");
+        ArgumentException.ThrowIfNullOrEmpty(chars);
+        _pattern.Append("[^");
+        AppendEscapedCharacterClass(chars);
+        _pattern.Append(']');
         return this;
+    }
+
+    private void AppendEscapedCharacterClass(string chars)
+    {
+        for (int i = 0; i < chars.Length; i++)
+        {
+            char c = chars[i];
+            if (c == '\\')
+            {
+                if (i + 1 < chars.Length)
+                {
+                    _pattern.Append('\\');
+                    _pattern.Append(chars[++i]);
+                }
+                else
+                {
+                    _pattern.Append(@"\\");
+                }
+            }
+            else if (c is ']' or '[' or '^')
+            {
+                _pattern.Append('\\');
+                _pattern.Append(c);
+            }
+            else
+            {
+                AppendCharOrControlEscape(c);
+            }
+        }
     }
 
     public RegexBuilder Range(char start, char end)
     {
         ThrowIfDisposed();
-        _pattern.Append($"[{start}-{end}]");
+        if (start > end)
+        {
+            throw new ArgumentOutOfRangeException(nameof(start), $"Start character '{start}' cannot be greater than end character '{end}'.");
+        }
+
+        _pattern.Append('[');
+        AppendEscapedRangeChar(start);
+        _pattern.Append('-');
+        AppendEscapedRangeChar(end);
+        _pattern.Append(']');
         return this;
+    }
+
+    private void AppendEscapedRangeChar(char c)
+    {
+        if (c == '-')
+        {
+            _pattern.Append(@"\x2D");
+        }
+        else if (c is '\\' or ']' or '[' or '^')
+        {
+            _pattern.Append('\\');
+            _pattern.Append(c);
+        }
+        else
+        {
+            AppendCharOrControlEscape(c);
+        }
+    }
+
+    private void AppendCharOrControlEscape(char c)
+    {
+        switch (c)
+        {
+            case '\t':
+                _pattern.Append(@"\t");
+                break;
+            case '\n':
+                _pattern.Append(@"\n");
+                break;
+            case '\r':
+                _pattern.Append(@"\r");
+                break;
+            case '\f':
+                _pattern.Append(@"\f");
+                break;
+            case '\v':
+                _pattern.Append(@"\v");
+                break;
+            default:
+                _pattern.Append(c);
+                break;
+        }
     }
 
     // Quantifiers
