@@ -252,4 +252,20 @@ public class QuantifierTests
         builder.GetPattern().Should().Be("^(?:abc)+$");
         builder.Build().IsMatch("ABCabc").Should().BeTrue();
     }
+
+    [Test]
+    public void TestIntMaxValueQuantifierBoundsProduceValidPatterns()
+    {
+        using var exactlyMax = RegexBuilder.Create().Digit().Exactly(int.MaxValue);
+        exactlyMax.GetPattern().Should().Be($@"\d{{{int.MaxValue}}}");
+        exactlyMax.Build().IsMatch("1").Should().BeFalse();
+
+        using var atLeastMax = RegexBuilder.Create().Digit().AtLeast(int.MaxValue);
+        atLeastMax.GetPattern().Should().Be($@"\d{{{int.MaxValue},}}");
+        atLeastMax.Build().IsMatch("1").Should().BeFalse();
+
+        using var betweenMax = RegexBuilder.Create().Digit().Between(0, int.MaxValue);
+        betweenMax.GetPattern().Should().Be($@"\d{{0,{int.MaxValue}}}");
+        betweenMax.Build().IsMatch("1").Should().BeTrue();
+    }
 }

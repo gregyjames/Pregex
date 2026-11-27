@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace PregexTests;
 
 public class RegexOptionsTests
@@ -106,5 +108,29 @@ public class RegexOptionsTests
 
         regex.Options.Should().HaveFlag(RegexOptions.RightToLeft);
         regex.Match("a12b34").Value.Should().Be("34");
+    }
+
+    [Test]
+    public void TestCultureInvariantIgnoresTurkishCaseRules()
+    {
+        CultureInfo original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal("i")
+                .EndOfString()
+                .IgnoreCase()
+                .CultureInvariant();
+
+            var regex = builder.Build();
+            regex.IsMatch("I").Should().BeTrue();
+            regex.IsMatch("\u0130").Should().BeFalse();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 }
