@@ -216,4 +216,41 @@ public class GroupTests
 
         builder.OneOrMore().GetPattern().Should().Be(prefix + "(?:xy)+");
     }
+
+    [Test]
+    public void TestNamedGroupValidationMatchesDotNetRegexAcrossAllBmpCharacters()
+    {
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            char c = (char)code;
+
+            if (char.IsLetter(c) || c == '_')
+            {
+                using var singleCharBuilder = RegexBuilder.Create().NamedGroup(c.ToString(), b => b.Literal("x"));
+                var regex = singleCharBuilder.Build();
+                regex.Match("x").Groups[c.ToString()].Value.Should().Be("x", $"U+{code:X4} should be a valid group start char");
+            }
+            else
+            {
+                using var invalidStartBuilder = RegexBuilder.Create();
+                invalidStartBuilder.Invoking(b => b.NamedGroup(c.ToString(), inner => inner.Literal("x")))
+                    .Should().Throw<ArgumentException>($"U+{code:X4} should be rejected as group start char");
+            }
+
+            if (char.IsLetterOrDigit(c) || c == '_')
+            {
+                string name = "a" + c;
+                using var subsequentBuilder = RegexBuilder.Create().NamedGroup(name, b => b.Literal("x"));
+                var regex = subsequentBuilder.Build();
+                regex.Match("x").Groups[name].Value.Should().Be("x", $"U+{code:X4} should be a valid subsequent group char");
+            }
+            else
+            {
+                string name = "a" + c;
+                using var invalidSubsequentBuilder = RegexBuilder.Create();
+                invalidSubsequentBuilder.Invoking(b => b.NamedGroup(name, inner => inner.Literal("x")))
+                    .Should().Throw<ArgumentException>($"U+{code:X4} should be rejected as subsequent group char");
+            }
+        }
+    }
 }

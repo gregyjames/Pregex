@@ -282,4 +282,24 @@ public class CharacterMatchingTests
             regex.IsMatch(other).Should().BeFalse($"character U+{code:X4} should not match '{other}'");
         }
     }
+
+    [Test]
+    public void TestMultiCharLiteralAllAsciiCharactersQuantifiedUnderIgnorePatternWhitespaceAndCompiled()
+    {
+        for (int code = 0; code <= 127; code++)
+        {
+            string pair = "p" + (char)code;
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(pair).OneOrMore()
+                .EndOfString()
+                .IgnorePatternWhitespace()
+                .Compiled();
+
+            var regex = builder.Build();
+            regex.IsMatch(pair).Should().BeTrue($"multi-char pair containing U+{code:X4} should match once");
+            regex.IsMatch(pair + pair).Should().BeTrue($"multi-char pair containing U+{code:X4} should match twice");
+            regex.IsMatch(pair + "p").Should().BeFalse($"multi-char pair containing U+{code:X4} should require full pair");
+        }
+    }
 }

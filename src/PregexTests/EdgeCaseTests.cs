@@ -71,13 +71,15 @@ public class EdgeCaseTests
         builder.Build().IsMatch(string.Concat(Enumerable.Repeat("abcd1", 1000))).Should().BeTrue();
     }
 
-    [Test]
-    public void TestQuantifierFormattingIsIndependentOfCurrentCulture()
+    [TestCase("tr-TR")]
+    [TestCase("ar-SA")]
+    [TestCase("fa-IR")]
+    public void TestQuantifierFormattingIsIndependentOfCurrentCulture(string cultureName)
     {
         CultureInfo original = CultureInfo.CurrentCulture;
         try
         {
-            CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+            CultureInfo.CurrentCulture = new CultureInfo(cultureName);
             using var builder = RegexBuilder.Create()
                 .Digit().Exactly(10)
                 .Word().AtLeast(2)

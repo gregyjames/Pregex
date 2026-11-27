@@ -531,4 +531,18 @@ public class CharacterSetTests
         notSetSubRegex.IsMatch("]").Should().BeFalse();
         notSetSubRegex.IsMatch("A").Should().BeTrue();
     }
+
+    [Test]
+    public void TestInvalidSetNotSetAndRangePreservePrecedingMultiCharLiteralState()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab");
+
+        builder.Invoking(b => b.Set("z-a")).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NotSet(@"\c")).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.Range('z', 'a')).Should().Throw<ArgumentOutOfRangeException>();
+
+        builder.GetPattern().Should().Be("ab");
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+        builder.Build().IsMatch("abab").Should().BeTrue();
+    }
 }
