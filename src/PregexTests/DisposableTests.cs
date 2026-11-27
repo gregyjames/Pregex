@@ -74,4 +74,33 @@ public class DisposableTests
         builder.Invoking(b => b.CultureInvariant()).Should().Throw<ObjectDisposedException>();
         builder.Invoking(b => b.RightToLeft()).Should().Throw<ObjectDisposedException>();
     }
+
+    [Test]
+    public void TestDisposedBuilderThrowsObjectDisposedExceptionBeforeArgumentValidation()
+    {
+        var builder = RegexBuilder.Create().Digit();
+        builder.Dispose();
+
+        builder.Invoking(b => b.Literal(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Set(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Set("")).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NotSet(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NotSet("")).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Range('z', 'a')).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Exactly(-1)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.AtLeast(-1)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Between(-1, 0)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Between(5, 2)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Group(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NonCapturingGroup(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NamedGroup(null!, null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NamedGroup("", _ => { })).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NamedGroup("1abc", _ => { })).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NamedGroup("valid", null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.PositiveLookahead(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NegativeLookahead(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.PositiveLookbehind(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.NegativeLookbehind(null!)).Should().Throw<ObjectDisposedException>();
+        builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ObjectDisposedException>();
+    }
 }
