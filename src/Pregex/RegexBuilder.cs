@@ -179,6 +179,7 @@ public class RegexBuilder : IDisposable
     /// Appends a digit character class (<c>\d</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Digit()
     {
         ThrowIfDisposed();
@@ -192,6 +193,7 @@ public class RegexBuilder : IDisposable
     /// Appends a word character class (<c>\w</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Word()
     {
         ThrowIfDisposed();
@@ -205,6 +207,7 @@ public class RegexBuilder : IDisposable
     /// Appends a whitespace character class (<c>\s</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Whitespace()
     {
         ThrowIfDisposed();
@@ -218,6 +221,7 @@ public class RegexBuilder : IDisposable
     /// Appends a non-digit character class (<c>\D</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NotDigit()
     {
         ThrowIfDisposed();
@@ -231,6 +235,7 @@ public class RegexBuilder : IDisposable
     /// Appends a non-word character class (<c>\W</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NotWord()
     {
         ThrowIfDisposed();
@@ -244,6 +249,7 @@ public class RegexBuilder : IDisposable
     /// Appends a non-whitespace character class (<c>\S</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NotWhitespace()
     {
         ThrowIfDisposed();
@@ -257,6 +263,7 @@ public class RegexBuilder : IDisposable
     /// Appends a wildcard character (<c>.</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder AnyChar()
     {
         ThrowIfDisposed();
@@ -577,6 +584,7 @@ public class RegexBuilder : IDisposable
     /// Appends a start-of-string or start-of-line anchor (<c>^</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder StartOfString()
     {
         ThrowIfDisposed();
@@ -590,6 +598,7 @@ public class RegexBuilder : IDisposable
     /// Appends an end-of-string or end-of-line anchor (<c>$</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder EndOfString()
     {
         ThrowIfDisposed();
@@ -603,6 +612,7 @@ public class RegexBuilder : IDisposable
     /// Appends a word boundary anchor (<c>\b</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder WordBoundary()
     {
         ThrowIfDisposed();
@@ -616,6 +626,7 @@ public class RegexBuilder : IDisposable
     /// Appends a non-word boundary anchor (<c>\B</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NotWordBoundary()
     {
         ThrowIfDisposed();
@@ -704,6 +715,7 @@ public class RegexBuilder : IDisposable
     /// Appends an alternation operator (<c>|</c>) to the pattern.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Or()
     {
         ThrowIfDisposed();
@@ -791,6 +803,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.IgnoreCase"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder IgnoreCase()
     {
         ThrowIfDisposed();
@@ -802,6 +815,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.Multiline"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Multiline()
     {
         ThrowIfDisposed();
@@ -813,6 +827,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.Singleline"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Singleline()
     {
         ThrowIfDisposed();
@@ -824,6 +839,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.ExplicitCapture"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder ExplicitCapture()
     {
         ThrowIfDisposed();
@@ -835,6 +851,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.Compiled"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Compiled()
     {
         ThrowIfDisposed();
@@ -846,6 +863,7 @@ public class RegexBuilder : IDisposable
     /// Enables <see cref="RegexOptions.IgnorePatternWhitespace"/> on the built regular expression.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder IgnorePatternWhitespace()
     {
         ThrowIfDisposed();
