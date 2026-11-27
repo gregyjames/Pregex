@@ -774,4 +774,33 @@ public class CharacterSetTests
         notRegex.IsMatch("\x1F").Should().BeFalse();
         notRegex.IsMatch(" ").Should().BeTrue();
     }
+
+    [TestCase(@"\u123")]
+    [TestCase(@"\x1")]
+    [TestCase(@"\k<a>")]
+    [TestCase(@"\p{NotARealUnicodeCategory}")]
+    [TestCase("a--")]
+    [TestCase(@"a-\]")]
+    public void TestSetAndNotSetRejectMalformedEscapesAndRangesWithoutCorruptingBuilder(string invalidChars)
+    {
+        using var builder = RegexBuilder.Create().Literal("ab");
+
+        builder.Invoking(b => b.Set(invalidChars)).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NotSet(invalidChars)).Should().Throw<ArgumentException>();
+
+        builder.GetPattern().Should().Be("ab");
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
+
+    [Test]
+    public void TestSetNotSetAndRangeWithUnicodeCategoriesAndShorthandNegation()
+    {
+        var nonDigit = RegexBuilder.Create().StartOfString().NotSet(@"\d").EndOfString().Build();
+        nonDigit.IsMatch("a").Should().BeTrue();
+        nonDigit.IsMatch("5").Should().BeFalse();
+
+        var nonLetter = RegexBuilder.Create().StartOfString().Set(@"\P{L}").EndOfString().Build();
+        nonLetter.IsMatch("5").Should().BeTrue();
+        nonLetter.IsMatch("A").Should().BeFalse();
+    }
 }
