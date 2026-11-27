@@ -213,4 +213,106 @@ public class CharacterSetTests
         using var builder = RegexBuilder.Create();
         builder.Invoking(b => b.Range('z', 'a')).Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Test]
+    public void TestSetAndNotSetEscapeNullCharFollowedByDigits()
+    {
+        using var setBuilder = RegexBuilder.Create().Set("\00");
+        setBuilder.GetPattern().Should().Be(@"[\x000]");
+        var setRegex = setBuilder.Build();
+        setRegex.IsMatch("\0").Should().BeTrue();
+        setRegex.IsMatch("0").Should().BeTrue();
+        setRegex.IsMatch("1").Should().BeFalse();
+
+        using var notSetBuilder = RegexBuilder.Create().NotSet("\00");
+        notSetBuilder.GetPattern().Should().Be(@"[^\x000]");
+        var notSetRegex = notSetBuilder.Build();
+        notSetRegex.IsMatch("\0").Should().BeFalse();
+        notSetRegex.IsMatch("0").Should().BeFalse();
+        notSetRegex.IsMatch("a").Should().BeTrue();
+    }
+
+    [TestCase("z-a")]
+    [TestCase("a-[")]
+    [TestCase("a-]")]
+    [TestCase("a-^")]
+    [TestCase(@"a-\d")]
+    [TestCase(@"\q")]
+    [TestCase(@"\x")]
+    [TestCase(@"\u12")]
+    [TestCase(@"\p")]
+    [TestCase(@"\c")]
+    public void TestSetAndNotSetInvalidSpecsThrowArgumentExceptionWithoutCorruptingBuilder(string invalidChars)
+    {
+        using var builder = RegexBuilder.Create().Literal("prefix");
+        builder.Invoking(b => b.Set(invalidChars)).Should().Throw<ArgumentException>();
+        builder.GetPattern().Should().Be("prefix");
+
+        builder.Invoking(b => b.NotSet(invalidChars)).Should().Throw<ArgumentException>();
+        builder.GetPattern().Should().Be("prefix");
+
+        builder.Digit().Build().IsMatch("prefix5").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestSetHandlesLeadingTrailingSingleAndTripleHyphens()
+    {
+        using var leading = RegexBuilder.Create().Set("-abc");
+        leading.Build().IsMatch("-").Should().BeTrue();
+        leading.Build().IsMatch("a").Should().BeTrue();
+
+        using var trailing = RegexBuilder.Create().Set("abc-");
+        trailing.Build().IsMatch("-").Should().BeTrue();
+        trailing.Build().IsMatch("c").Should().BeTrue();
+
+        using var single = RegexBuilder.Create().Set("-");
+        single.Build().IsMatch("-").Should().BeTrue();
+        single.Build().IsMatch("a").Should().BeFalse();
+
+        using var triple = RegexBuilder.Create().Set("---");
+        triple.Build().IsMatch("-").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestRangeBoundaryCases()
+    {
+        using var sameChar = RegexBuilder.Create().Range('a', 'a');
+        sameChar.GetPattern().Should().Be("[a-a]");
+        sameChar.Build().IsMatch("a").Should().BeTrue();
+        sameChar.Build().IsMatch("b").Should().BeFalse();
+
+        using var hyphenOnly = RegexBuilder.Create().Range('-', '-');
+        hyphenOnly.GetPattern().Should().Be(@"[\x2D-\x2D]");
+        hyphenOnly.Build().IsMatch("-").Should().BeTrue();
+        hyphenOnly.Build().IsMatch("a").Should().BeFalse();
+
+        using var controlRange = RegexBuilder.Create().Range('\0', '\x1F');
+        controlRange.GetPattern().Should().Be(@"[\x00-" + "\x1F]");
+        controlRange.Build().IsMatch("\0").Should().BeTrue();
+        controlRange.Build().IsMatch("\t").Should().BeTrue();
+        controlRange.Build().IsMatch(" ").Should().BeFalse();
+
+        using var fullRange = RegexBuilder.Create().Range('\0', '\uFFFF');
+        fullRange.Build().IsMatch("\0").Should().BeTrue();
+        fullRange.Build().IsMatch("\uFFFF").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestSetNotSetAndRangeWithIgnorePatternWhitespace()
+    {
+        using var setRegex = RegexBuilder.Create().Set("a #").IgnorePatternWhitespace();
+        setRegex.Build().IsMatch(" ").Should().BeTrue();
+        setRegex.Build().IsMatch("#").Should().BeTrue();
+        setRegex.Build().IsMatch("a").Should().BeTrue();
+
+        using var notSetRegex = RegexBuilder.Create().NotSet(" #").IgnorePatternWhitespace();
+        notSetRegex.Build().IsMatch(" ").Should().BeFalse();
+        notSetRegex.Build().IsMatch("#").Should().BeFalse();
+        notSetRegex.Build().IsMatch("a").Should().BeTrue();
+
+        using var rangeRegex = RegexBuilder.Create().Range('\t', '\r').IgnorePatternWhitespace();
+        rangeRegex.Build().IsMatch("\n").Should().BeTrue();
+        rangeRegex.Build().IsMatch("\v").Should().BeTrue();
+        rangeRegex.Build().IsMatch("a").Should().BeFalse();
+    }
 }

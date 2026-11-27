@@ -173,16 +173,11 @@ public class RegexBuilder : IDisposable
     /// <param name="chars">The characters or ranges to include in the character class.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Set(string chars)
     {
-        ThrowIfDisposed();
-        ThrowIfNullOrEmpty(chars, nameof(chars));
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append('[');
-        AppendEscapedCharacterClass(chars);
-        _pattern.Append(']');
-        return this;
+        return AppendCharacterClass(chars, negated: false);
     }
 
     /// <summary>
@@ -191,19 +186,47 @@ public class RegexBuilder : IDisposable
     /// <param name="chars">The characters or ranges to exclude from matching.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NotSet(string chars)
+    {
+        return AppendCharacterClass(chars, negated: true);
+    }
+
+    private RegexBuilder AppendCharacterClass(string chars, bool negated)
     {
         ThrowIfDisposed();
         ThrowIfNullOrEmpty(chars, nameof(chars));
+
+        string candidate;
+        Utf16ValueStringBuilder classBuilder = ZString.CreateStringBuilder();
+        try
+        {
+            classBuilder.Append(negated ? "[^" : "[");
+            AppendEscapedCharacterClass(ref classBuilder, chars);
+            classBuilder.Append(']');
+            candidate = classBuilder.ToString();
+        }
+        finally
+        {
+            classBuilder.Dispose();
+        }
+
+        try
+        {
+            _ = new Regex(candidate);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ArgumentException($"Invalid character class specification: {ex.Message}", nameof(chars), ex);
+        }
+
         _lastMultiCharLiteralStart = -1;
-        _pattern.Append("[^");
-        AppendEscapedCharacterClass(chars);
-        _pattern.Append(']');
+        _pattern.Append(candidate);
         return this;
     }
 
-    private void AppendEscapedCharacterClass(string chars)
+    private static void AppendEscapedCharacterClass(ref Utf16ValueStringBuilder target, string chars)
     {
         for (int i = 0; i < chars.Length; i++)
         {
@@ -212,22 +235,22 @@ public class RegexBuilder : IDisposable
             {
                 if (i + 1 < chars.Length)
                 {
-                    _pattern.Append('\\');
-                    _pattern.Append(chars[++i]);
+                    target.Append('\\');
+                    target.Append(chars[++i]);
                 }
                 else
                 {
-                    _pattern.Append(@"\\");
+                    target.Append(@"\\");
                 }
             }
             else if (c is ']' or '[' or '^')
             {
-                _pattern.Append('\\');
-                _pattern.Append(c);
+                target.Append('\\');
+                target.Append(c);
             }
             else
             {
-                AppendCharOrControlEscape(c);
+                AppendCharOrControlEscape(ref target, c);
             }
         }
     }
@@ -239,6 +262,7 @@ public class RegexBuilder : IDisposable
     /// <param name="end">The inclusive upper bound character of the range.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="start"/> is greater than <paramref name="end"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Range(char start, char end)
     {
         ThrowIfDisposed();
@@ -249,51 +273,54 @@ public class RegexBuilder : IDisposable
 
         _lastMultiCharLiteralStart = -1;
         _pattern.Append('[');
-        AppendEscapedRangeChar(start);
+        AppendEscapedRangeChar(ref _pattern, start);
         _pattern.Append('-');
-        AppendEscapedRangeChar(end);
+        AppendEscapedRangeChar(ref _pattern, end);
         _pattern.Append(']');
         return this;
     }
 
-    private void AppendEscapedRangeChar(char c)
+    private static void AppendEscapedRangeChar(ref Utf16ValueStringBuilder target, char c)
     {
         if (c == '-')
         {
-            _pattern.Append(@"\x2D");
+            target.Append(@"\x2D");
         }
         else if (c is '\\' or ']' or '[' or '^')
         {
-            _pattern.Append('\\');
-            _pattern.Append(c);
+            target.Append('\\');
+            target.Append(c);
         }
         else
         {
-            AppendCharOrControlEscape(c);
+            AppendCharOrControlEscape(ref target, c);
         }
     }
 
-    private void AppendCharOrControlEscape(char c)
+    private static void AppendCharOrControlEscape(ref Utf16ValueStringBuilder target, char c)
     {
         switch (c)
         {
+            case '\0':
+                target.Append(@"\x00");
+                break;
             case '\t':
-                _pattern.Append(@"\t");
+                target.Append(@"\t");
                 break;
             case '\n':
-                _pattern.Append(@"\n");
+                target.Append(@"\n");
                 break;
             case '\r':
-                _pattern.Append(@"\r");
+                target.Append(@"\r");
                 break;
             case '\f':
-                _pattern.Append(@"\f");
+                target.Append(@"\f");
                 break;
             case '\v':
-                _pattern.Append(@"\v");
+                target.Append(@"\v");
                 break;
             default:
-                _pattern.Append(c);
+                target.Append(c);
                 break;
         }
     }
