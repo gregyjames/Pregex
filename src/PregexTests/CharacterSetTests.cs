@@ -496,4 +496,39 @@ public class CharacterSetTests
             }
         }
     }
+
+    [Test]
+    public void TestSetAndNotSetControlEscapesWithTrailingCharsAndCompiled()
+    {
+        using var nullControl = RegexBuilder.Create().Set(@"\c@");
+        nullControl.GetPattern().Should().Be(@"[\c@]");
+        nullControl.Build().IsMatch("\0").Should().BeTrue();
+        nullControl.Compiled().Build().IsMatch("a").Should().BeFalse();
+
+        using var usControl = RegexBuilder.Create().Set(@"\c_");
+        usControl.GetPattern().Should().Be(@"[\c_]");
+        usControl.Compiled().Build().IsMatch("\x1F").Should().BeTrue();
+
+        using var gsAndEscapedBracket = RegexBuilder.Create().Set(@"\c\]").Compiled().IgnorePatternWhitespace();
+        gsAndEscapedBracket.GetPattern().Should().Be(@"[\c\\]]");
+        var gsRegex = gsAndEscapedBracket.Build();
+        gsRegex.IsMatch("\x1C").Should().BeTrue();
+        gsRegex.IsMatch("]").Should().BeTrue();
+        gsRegex.IsMatch("a").Should().BeFalse();
+
+        using var gsFollowedByLetter = RegexBuilder.Create().Set(@"\c]a").Compiled();
+        gsFollowedByLetter.GetPattern().Should().Be(@"[\c]a]");
+        var gsLetterRegex = gsFollowedByLetter.Build();
+        gsLetterRegex.IsMatch("\x1D").Should().BeTrue();
+        gsLetterRegex.IsMatch("a").Should().BeTrue();
+        gsLetterRegex.IsMatch("]").Should().BeFalse();
+
+        using var notSetSubtractionEscaped = RegexBuilder.Create().NotSet("a-z-[b]");
+        notSetSubtractionEscaped.GetPattern().Should().Be(@"[^a-z-\[b\]]");
+        var notSetSubRegex = notSetSubtractionEscaped.Build();
+        notSetSubRegex.IsMatch("b").Should().BeFalse();
+        notSetSubRegex.IsMatch("[").Should().BeFalse();
+        notSetSubRegex.IsMatch("]").Should().BeFalse();
+        notSetSubRegex.IsMatch("A").Should().BeTrue();
+    }
 }

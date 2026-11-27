@@ -241,4 +241,48 @@ public class RealWorldExamplesTests
         phoneRegex.IsMatch("+1-123-456").Should().BeFalse();
         phoneRegex.IsMatch("123-456").Should().BeFalse();
     }
+
+    [Test]
+    public void TestReadmeEmailUrlAndPasswordExamples()
+    {
+        var emailRegex = RegexBuilder.Create()
+            .StartOfString()
+            .Set("a-zA-Z0-9._%-").OneOrMore()
+            .Literal("@")
+            .Set("a-zA-Z0-9.-").OneOrMore()
+            .Literal(".")
+            .Set("a-zA-Z").Between(2, 6)
+            .EndOfString()
+            .Build();
+
+        emailRegex.IsMatch("user.name+1@example.com").Should().BeFalse();
+        emailRegex.IsMatch("user_name-1@sub.example.com").Should().BeTrue();
+        emailRegex.IsMatch("invalid@").Should().BeFalse();
+
+        var urlRegex = RegexBuilder.Create()
+            .NamedGroup("protocol", b => b.Literal("http").Literal("s").Optional())
+            .Literal("://")
+            .NamedGroup("domain", b => b.NotSet(" /").OneOrMore())
+            .NamedGroup("path", b => b.Literal("/").AnyChar().ZeroOrMore()).Optional()
+            .Build();
+
+        var urlMatch = urlRegex.Match("https://example.com/path");
+        urlMatch.Success.Should().BeTrue();
+        urlMatch.Groups["protocol"].Value.Should().Be("https");
+        urlMatch.Groups["domain"].Value.Should().Be("example.com");
+        urlMatch.Groups["path"].Value.Should().Be("/path");
+
+        var passwordRegex = RegexBuilder.Create()
+            .StartOfString()
+            .PositiveLookahead(b => b.AnyChar().ZeroOrMore().Digit())
+            .PositiveLookahead(b => b.AnyChar().ZeroOrMore().Range('a', 'z'))
+            .PositiveLookahead(b => b.AnyChar().ZeroOrMore().Range('A', 'Z'))
+            .AnyChar().AtLeast(8)
+            .EndOfString()
+            .Build();
+
+        passwordRegex.IsMatch("Password1").Should().BeTrue();
+        passwordRegex.IsMatch("password").Should().BeFalse();
+        passwordRegex.IsMatch("Pass1").Should().BeFalse();
+    }
 }

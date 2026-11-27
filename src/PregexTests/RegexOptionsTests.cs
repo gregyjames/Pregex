@@ -150,4 +150,51 @@ public class RegexOptionsTests
         match.Groups["num"].Value.Should().Be("34");
         match.Groups["word"].Value.Should().Be("cd");
     }
+
+    [Test]
+    public void TestExplicitCaptureWithMultiCharLiteralQuantifierAndGroups()
+    {
+        var regex = RegexBuilder.Create()
+            .Literal("ab").OneOrMore()
+            .Group(b => b.Digit().Exactly(2))
+            .Literal("-")
+            .NamedGroup("code", b => b.Word().OneOrMore())
+            .ExplicitCapture()
+            .Build();
+
+        var match = regex.Match("abab12-xy");
+        match.Success.Should().BeTrue();
+        match.Groups.Count.Should().Be(2);
+        match.Groups["code"].Value.Should().Be("xy");
+    }
+
+    [Test]
+    public void TestRightToLeftWithLazyMultiCharLiteralAndRange()
+    {
+        var regex = RegexBuilder.Create()
+            .Literal("ab").OneOrMore().Lazy()
+            .Range('0', '9').OneOrMore()
+            .RightToLeft()
+            .Build();
+
+        var match = regex.Match("ab1 abab23");
+        match.Success.Should().BeTrue();
+        match.Value.Should().Be("ab23");
+    }
+
+    [Test]
+    public void TestIgnorePatternWhitespaceWithNonAsciiLineSeparators()
+    {
+        const string separators = "\u0085\u2028\u2029";
+        var regex = RegexBuilder.Create()
+            .StartOfString()
+            .Literal(separators).OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Build();
+
+        regex.IsMatch(separators).Should().BeTrue();
+        regex.IsMatch(separators + separators).Should().BeTrue();
+        regex.IsMatch("").Should().BeFalse();
+    }
 }
