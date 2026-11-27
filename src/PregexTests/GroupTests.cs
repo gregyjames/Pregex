@@ -323,7 +323,41 @@ public class GroupTests
         using var builder = RegexBuilder.Create().Literal("ab");
         builder.Invoking(b => b.NamedGroup("😀", inner => inner.Digit())).Should().Throw<ArgumentException>();
         builder.Invoking(b => b.NamedGroup("a😀", inner => inner.Digit())).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NamedGroup("\U00010400", inner => inner.Digit())).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NamedGroup("a\U0001D7CE", inner => inner.Digit())).Should().Throw<ArgumentException>();
         builder.GetPattern().Should().Be("ab");
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
+
+    [Test]
+    public void TestScopedCallbackInspectionSucceedsAndUnclosedBuildRollsBackCleanly()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab").IgnoreCase();
+        string? seenPattern = null;
+        RegexOptions? seenOptions = null;
+        string? seenToString = null;
+
+        builder.Group(inner =>
+        {
+            inner.Digit();
+            seenPattern = inner.GetPattern();
+            seenOptions = inner.GetOptions();
+            seenToString = inner.ToString();
+        });
+
+        seenPattern.Should().Be(@"ab(\d");
+        seenOptions.Should().Be(RegexOptions.IgnoreCase);
+        seenToString.Should().Be(@"/ab(\d/IgnoreCase");
+        builder.GetPattern().Should().Be(@"ab(\d)");
+
+        builder.Invoking(b => b.Group(inner =>
+        {
+            inner.Word().Multiline();
+            inner.Build();
+        })).Should().Throw<ArgumentException>();
+
+        builder.GetPattern().Should().Be(@"ab(\d)");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        builder.OneOrMore().GetPattern().Should().Be(@"ab(\d)+");
     }
 }

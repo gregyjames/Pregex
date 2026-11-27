@@ -803,4 +803,39 @@ public class CharacterSetTests
         nonLetter.IsMatch("5").Should().BeTrue();
         nonLetter.IsMatch("A").Should().BeFalse();
     }
+
+    [Test]
+    public void TestSetAndNotSetHandleControlWordEscapesAndRejectInvalidClassEscapes()
+    {
+        using var escapes = RegexBuilder.Create().StartOfString().Set(@"\a\b\e").EndOfString();
+        escapes.GetPattern().Should().Be(@"^[\a\b\e]$");
+        var escapesRegex = escapes.Build();
+        escapesRegex.IsMatch("\a").Should().BeTrue();
+        escapesRegex.IsMatch("\b").Should().BeTrue();
+        escapesRegex.IsMatch("\x1B").Should().BeTrue();
+        escapesRegex.IsMatch("a").Should().BeFalse();
+
+        using var rangeAndEscapedHyphen = RegexBuilder.Create().StartOfString().Set(@"a-z\-0-9").EndOfString();
+        var combinedRegex = rangeAndEscapedHyphen.Build();
+        combinedRegex.IsMatch("m").Should().BeTrue();
+        combinedRegex.IsMatch("-").Should().BeTrue();
+        combinedRegex.IsMatch("5").Should().BeTrue();
+        combinedRegex.IsMatch("A").Should().BeFalse();
+
+        using var escapedSpaceAndHash = RegexBuilder.Create().StartOfString().Set(@"\ \#").EndOfString();
+        escapedSpaceAndHash.GetPattern().Should().Be(@"^[\ \#]$");
+        escapedSpaceAndHash.Build().IsMatch(" ").Should().BeTrue();
+        escapedSpaceAndHash.Build().IsMatch("#").Should().BeTrue();
+        escapedSpaceAndHash.Build().IsMatch(@"\").Should().BeFalse();
+
+        using var invalidEscapeBuilder = RegexBuilder.Create().Literal("ab");
+        invalidEscapeBuilder.Invoking(b => b.Set(@"\B")).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("chars");
+        invalidEscapeBuilder.Invoking(b => b.Set(@"\q")).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("chars");
+        invalidEscapeBuilder.Invoking(b => b.NotSet(@"\k")).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("chars");
+        invalidEscapeBuilder.GetPattern().Should().Be("ab");
+        invalidEscapeBuilder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
 }

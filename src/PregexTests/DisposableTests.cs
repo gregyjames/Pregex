@@ -103,4 +103,18 @@ public class DisposableTests
         builder.Invoking(b => b.NegativeLookbehind(null!)).Should().Throw<ObjectDisposedException>();
         builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ObjectDisposedException>();
     }
+
+    [Test]
+    public void TestDisposingOneBuilderDoesNotAffectAnotherInstance()
+    {
+        var first = RegexBuilder.Create().Literal("abc");
+        var second = RegexBuilder.Create().Literal("xyz");
+
+        first.Dispose();
+
+        first.Invoking(b => b.Build()).Should().Throw<ObjectDisposedException>();
+        second.OneOrMore().GetPattern().Should().Be("(?:xyz)+");
+        second.Build().IsMatch("xyzxyz").Should().BeTrue();
+        second.Dispose();
+    }
 }

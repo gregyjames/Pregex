@@ -441,4 +441,44 @@ public class QuantifierTests
             builder.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
         }
     }
+
+    [Test]
+    public void TestMultiCharLiteralFollowedByGroupOrSetQuantifiesOnlyTrailingElement()
+    {
+        using var withGroup = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("ab")
+            .Group(b => b.Literal("cd")).OneOrMore()
+            .EndOfString();
+        withGroup.GetPattern().Should().Be("^ab(cd)+$");
+        withGroup.Build().IsMatch("abcdcd").Should().BeTrue();
+        withGroup.Build().IsMatch("ababcd").Should().BeFalse();
+
+        using var withSet = RegexBuilder.Create().Literal("ab").Set("0-9").OneOrMore().Lazy();
+        withSet.GetPattern().Should().Be("ab[0-9]+?");
+        withSet.Build().Match("ab123").Value.Should().Be("ab1");
+
+        using var withRange = RegexBuilder.Create().Literal("ab").Range('a', 'z').Between(1, 2);
+        withRange.GetPattern().Should().Be("ab[a-z]{1,2}");
+    }
+
+    [Test]
+    public void TestQuantifierArgumentExceptionsReportExpectedParameterNames()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab");
+
+        builder.Invoking(b => b.Exactly(-1)).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("n");
+        builder.Invoking(b => b.AtLeast(-1)).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("n");
+        builder.Invoking(b => b.Between(-5, -10)).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("min");
+        builder.Invoking(b => b.Between(5, 2)).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("max");
+        builder.Invoking(b => b.Range('z', 'a')).Should().Throw<ArgumentOutOfRangeException>()
+            .Which.ParamName.Should().Be("start");
+
+        builder.GetPattern().Should().Be("ab");
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
 }
