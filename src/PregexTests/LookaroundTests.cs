@@ -56,4 +56,43 @@ public class LookaroundTests
         regex.IsMatch("xyztest").Should().BeTrue();
         regex.IsMatch("abctest").Should().BeFalse();
     }
+
+    [Test]
+    public void TestLookaroundNullCallbacksThrowWithoutCorruptingBuilder()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab");
+
+        builder.Invoking(b => b.PositiveLookahead(null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.NegativeLookahead(null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.PositiveLookbehind(null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.NegativeLookbehind(null!)).Should().Throw<ArgumentNullException>();
+
+        builder.GetPattern().Should().Be("ab");
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
+
+    [Test]
+    public void TestLookaroundThrowingCallbackRollsBackPartialPattern()
+    {
+        using var builder = RegexBuilder.Create().Digit();
+
+        builder.Invoking(b => b.PositiveLookahead(inner =>
+        {
+            inner.Literal("px");
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+
+        builder.GetPattern().Should().Be(@"\d");
+    }
+
+    [Test]
+    public void TestLookaroundEmptyAndQuantifierRejection()
+    {
+        using var emptyLookahead = RegexBuilder.Create().PositiveLookahead(_ => { });
+        emptyLookahead.GetPattern().Should().Be("(?=)");
+        emptyLookahead.Build().IsMatch("a").Should().BeTrue();
+
+        using var afterLookbehind = RegexBuilder.Create().PositiveLookbehind(b => b.Literal("$"));
+        afterLookbehind.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+    }
 }

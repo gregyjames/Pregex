@@ -50,6 +50,31 @@ public class RegexBuilder : IDisposable
         }
     }
 
+    private static bool IsValidGroupName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        char first = name[0];
+        if (!char.IsLetter(first) && first != '_')
+        {
+            return false;
+        }
+
+        for (int i = 1; i < name.Length; i++)
+        {
+            char c = name[i];
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private void EnsureQuantifiable()
     {
         switch (_lastTokenKind)
@@ -73,6 +98,41 @@ public class RegexBuilder : IDisposable
         _pattern.Append(symbol);
         _lastTokenKind = LastTokenKind.QuantifiedGreedy;
         _lastMultiCharLiteralStart = -1;
+    }
+
+    private RegexBuilder AppendScoped(string prefix, Action<RegexBuilder> callback, LastTokenKind postTokenKind)
+    {
+        int startLength = _pattern.Length;
+        LastTokenKind previousTokenKind = _lastTokenKind;
+        int previousLiteralStart = _lastMultiCharLiteralStart;
+
+        try
+        {
+            _pattern.Append(prefix);
+            _lastTokenKind = LastTokenKind.None;
+            _lastMultiCharLiteralStart = -1;
+
+            callback(this);
+            ThrowIfDisposed();
+
+            _pattern.Append(')');
+            _lastTokenKind = postTokenKind;
+            _lastMultiCharLiteralStart = -1;
+            return this;
+        }
+        catch
+        {
+            if (!_disposed)
+            {
+                string previousPattern = _pattern.AsSpan().Slice(0, startLength).ToString();
+                _pattern.Clear();
+                _pattern.Append(previousPattern);
+                _lastTokenKind = previousTokenKind;
+                _lastMultiCharLiteralStart = previousLiteralStart;
+            }
+
+            throw;
+        }
     }
 
     /// <summary>
@@ -574,17 +634,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Group(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(");
-        callback(this);
-        _lastTokenKind = LastTokenKind.Quantifiable;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(", callback, LastTokenKind.Quantifiable);
     }
 
     /// <summary>
@@ -592,17 +652,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NonCapturingGroup(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(?:");
-        callback(this);
-        _lastTokenKind = LastTokenKind.Quantifiable;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(?:", callback, LastTokenKind.Quantifiable);
     }
 
     /// <summary>
@@ -611,17 +671,35 @@ public class RegexBuilder : IDisposable
     /// <param name="name">The capture group name.</param>
     /// <param name="callback">An action that configures the pattern inside the group.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> or <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="name"/> is empty or not a valid .NET regex group name.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NamedGroup(string name, Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append($"(?<{name}>");
-        callback(this);
-        _lastTokenKind = LastTokenKind.Quantifiable;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (name is null)
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
+
+        if (name.Length == 0)
+        {
+            throw new ArgumentException("Group name cannot be empty.", nameof(name));
+        }
+
+        if (!IsValidGroupName(name))
+        {
+            throw new ArgumentException(
+                $"Invalid group name '{name}'. Group names must start with a letter or underscore and contain only letters, digits, or underscores.",
+                nameof(name));
+        }
+
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped($"(?<{name}>", callback, LastTokenKind.Quantifiable);
     }
 
     // Alternation
@@ -644,17 +722,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookahead pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder PositiveLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(?=");
-        callback(this);
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(?=", callback, LastTokenKind.None);
     }
 
     /// <summary>
@@ -662,17 +740,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookahead pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NegativeLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(?!");
-        callback(this);
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(?!", callback, LastTokenKind.None);
     }
 
     /// <summary>
@@ -680,17 +758,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookbehind pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder PositiveLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(?<=");
-        callback(this);
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(?<=", callback, LastTokenKind.None);
     }
 
     /// <summary>
@@ -698,17 +776,17 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="callback">An action that configures the lookbehind pattern.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder NegativeLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append("(?<!");
-        callback(this);
-        _lastTokenKind = LastTokenKind.None;
-        _lastMultiCharLiteralStart = -1;
-        _pattern.Append(")");
-        return this;
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
+
+        return AppendScoped("(?<!", callback, LastTokenKind.None);
     }
 
     // Regex Options (Flags)
