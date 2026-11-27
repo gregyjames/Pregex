@@ -11,6 +11,7 @@ public class RegexBuilder : IDisposable
     private Utf16ValueStringBuilder _pattern;
     private RegexOptions _options;
     private bool _disposed;
+    private int _lastMultiCharLiteralStart = -1;
 
     private RegexBuilder()
     {
@@ -39,6 +40,16 @@ public class RegexBuilder : IDisposable
         }
     }
 
+    private void WrapMultiCharLiteralIfNeeded()
+    {
+        if (_lastMultiCharLiteralStart >= 0)
+        {
+            _pattern.Insert(_lastMultiCharLiteralStart, "(?:");
+            _pattern.Append(')');
+            _lastMultiCharLiteralStart = -1;
+        }
+    }
+
     /// <summary>
     /// Appends an escaped literal string to the pattern.
     /// </summary>
@@ -47,6 +58,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Literal(string str)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = str.Length > 1 ? _pattern.Length : -1;
         _pattern.Append(Regex.Escape(str));
         return this;
     }
@@ -58,6 +70,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Digit()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\d");
         return this;
     }
@@ -69,6 +82,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Word()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\w");
         return this;
     }
@@ -80,6 +94,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Whitespace()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\s");
         return this;
     }
@@ -91,6 +106,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotDigit()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\D");
         return this;
     }
@@ -102,6 +118,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWord()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\W");
         return this;
     }
@@ -113,6 +130,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWhitespace()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\S");
         return this;
     }
@@ -124,6 +142,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder AnyChar()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(".");
         return this;
     }
@@ -140,6 +159,7 @@ public class RegexBuilder : IDisposable
     {
         ThrowIfDisposed();
         ThrowIfNullOrEmpty(chars, nameof(chars));
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append('[');
         AppendEscapedCharacterClass(chars);
         _pattern.Append(']');
@@ -157,6 +177,7 @@ public class RegexBuilder : IDisposable
     {
         ThrowIfDisposed();
         ThrowIfNullOrEmpty(chars, nameof(chars));
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("[^");
         AppendEscapedCharacterClass(chars);
         _pattern.Append(']');
@@ -207,6 +228,7 @@ public class RegexBuilder : IDisposable
             throw new ArgumentOutOfRangeException(nameof(start), $"Start character '{start}' cannot be greater than end character '{end}'.");
         }
 
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append('[');
         AppendEscapedRangeChar(start);
         _pattern.Append('-');
@@ -265,6 +287,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder OneOrMore()
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append("+");
         return this;
     }
@@ -276,6 +299,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder ZeroOrMore()
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append("*");
         return this;
     }
@@ -287,6 +311,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Optional()
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append("?");
         return this;
     }
@@ -299,6 +324,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Exactly(int n)
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append($"{{{n}}}");
         return this;
     }
@@ -311,6 +337,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder AtLeast(int n)
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append($"{{{n},}}");
         return this;
     }
@@ -324,6 +351,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Between(int min, int max)
     {
         ThrowIfDisposed();
+        WrapMultiCharLiteralIfNeeded();
         _pattern.Append($"{{{min},{max}}}");
         return this;
     }
@@ -336,6 +364,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder StartOfString()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("^");
         return this;
     }
@@ -347,6 +376,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder EndOfString()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("$");
         return this;
     }
@@ -358,6 +388,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder WordBoundary()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\b");
         return this;
     }
@@ -369,6 +400,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWordBoundary()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\B");
         return this;
     }
@@ -382,8 +414,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Group(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -396,8 +430,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NonCapturingGroup(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?:");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -411,8 +447,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NamedGroup(string name, Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append($"(?<{name}>");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -425,6 +463,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Or()
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("|");
         return this;
     }
@@ -438,8 +477,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder PositiveLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?=");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -452,8 +493,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NegativeLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?!");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -466,8 +509,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder PositiveLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?<=");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
@@ -480,8 +525,10 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NegativeLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?<!");
         callback(this);
+        _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
     }
