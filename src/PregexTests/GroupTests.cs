@@ -253,4 +253,35 @@ public class GroupTests
             }
         }
     }
+
+    [Test]
+    public void TestEmptyBuilderRollbackAfterLargeBufferGrowthRestoresEmptyState()
+    {
+        using var builder = RegexBuilder.Create();
+
+        builder.Invoking(b => b.Group(inner =>
+        {
+            inner.Literal(new string('a', 5000)).IgnoreCase().Multiline();
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+
+        builder.GetPattern().Should().Be("");
+        builder.GetOptions().Should().Be(RegexOptions.None);
+        builder.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+
+        builder.Literal("xy").OneOrMore().GetPattern().Should().Be("(?:xy)+");
+        builder.Build().IsMatch("xyxy").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestGroupCallbackOptionsPersistOnSuccess()
+    {
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Group(b => b.Literal("abc").IgnoreCase())
+            .EndOfString();
+
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        builder.Build().IsMatch("ABC").Should().BeTrue();
+    }
 }

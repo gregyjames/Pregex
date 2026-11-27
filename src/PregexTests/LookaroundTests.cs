@@ -109,4 +109,23 @@ public class LookaroundTests
 
         regex.Match("Price: $10, EUR 25, $30.5").Value.Should().Be("25");
     }
+
+    [Test]
+    public void TestNestedLookaroundsAndOptionCallAfterLookaroundStillRejectQuantifiers()
+    {
+        using var builder = RegexBuilder.Create()
+            .PositiveLookbehind(lb => lb.Literal("$").PositiveLookahead(la => la.Digit()))
+            .Digit().OneOrMore()
+            .NegativeLookahead(la => la.Literal(".").Digit())
+            .EndOfString();
+
+        var regex = builder.Build();
+        regex.Match("cost $42").Value.Should().Be("42");
+        regex.IsMatch("cost $42.5").Should().BeFalse();
+
+        using var afterLookaheadOption = RegexBuilder.Create()
+            .PositiveLookahead(b => b.Digit())
+            .IgnoreCase();
+        afterLookaheadOption.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+    }
 }

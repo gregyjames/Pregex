@@ -79,4 +79,19 @@ public class AlternationTests
         builder.Invoking(b => b.ZeroOrMore()).Should().Throw<InvalidOperationException>();
         builder.GetPattern().Should().Be("a|");
     }
+
+    [Test]
+    public void TestOrResetsPrecedingMultiCharLiteralState()
+    {
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .NonCapturingGroup(b => b.Literal("ab").Or().Literal("cd").OneOrMore())
+            .EndOfString();
+
+        builder.GetPattern().Should().Be("^(?:ab|(?:cd)+)$");
+        var regex = builder.Build();
+        regex.IsMatch("ab").Should().BeTrue();
+        regex.IsMatch("abab").Should().BeFalse();
+        regex.IsMatch("cdcd").Should().BeTrue();
+    }
 }

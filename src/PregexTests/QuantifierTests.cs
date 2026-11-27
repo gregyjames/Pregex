@@ -300,4 +300,79 @@ public class QuantifierTests
         regex.IsMatch(prefix + "abab").Should().BeTrue();
         regex.IsMatch(prefix + "abb").Should().BeFalse();
     }
+
+    [Test]
+    public void TestOptionCallBetweenQuantifierAndLazyPreservesLazyModifier()
+    {
+        using var builder = RegexBuilder.Create()
+            .Literal("<")
+            .AnyChar().OneOrMore()
+            .IgnoreCase()
+            .Lazy()
+            .Literal(">");
+
+        builder.GetPattern().Should().Be("<.+?>");
+        builder.Build().Match("<a><b>").Value.Should().Be("<a>");
+    }
+
+    [Test]
+    public void TestZeroRepetitionBoundsWithLazyAndCompiled()
+    {
+        using var exactlyZeroLazy = RegexBuilder.Create().StartOfString().Digit().Exactly(0).Lazy().EndOfString().Compiled();
+        exactlyZeroLazy.GetPattern().Should().Be(@"^\d{0}?$");
+        exactlyZeroLazy.Build().IsMatch("").Should().BeTrue();
+        exactlyZeroLazy.Build().IsMatch("1").Should().BeFalse();
+
+        using var atLeastZeroLazy = RegexBuilder.Create().Digit().AtLeast(0).Lazy().Compiled();
+        atLeastZeroLazy.GetPattern().Should().Be(@"\d{0,}?");
+        atLeastZeroLazy.Build().Match("123").Value.Should().Be("");
+
+        using var betweenZeroZeroLazy = RegexBuilder.Create().StartOfString().Digit().Between(0, 0).Lazy().EndOfString().Compiled();
+        betweenZeroZeroLazy.GetPattern().Should().Be(@"^\d{0,0}?$");
+        betweenZeroZeroLazy.Build().IsMatch("").Should().BeTrue();
+
+        using var multiCharZero = RegexBuilder.Create().StartOfString().Literal("ab").Exactly(0).EndOfString();
+        multiCharZero.GetPattern().Should().Be(@"^(?:ab){0}$");
+        multiCharZero.Build().IsMatch("").Should().BeTrue();
+        multiCharZero.Build().IsMatch("ab").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestInspectionAndBuildMethodsPreserveQuantifierAndMultiCharLiteralState()
+    {
+        using var multiCharBuilder = RegexBuilder.Create().Literal("ab");
+        multiCharBuilder.GetPattern().Should().Be("ab");
+        multiCharBuilder.GetOptions().Should().Be(RegexOptions.None);
+        multiCharBuilder.ToString().Should().Be("/ab/None");
+        multiCharBuilder.Build().IsMatch("ab").Should().BeTrue();
+        multiCharBuilder.Build(TimeSpan.FromSeconds(1)).IsMatch("ab").Should().BeTrue();
+
+        multiCharBuilder.OneOrMore();
+        multiCharBuilder.GetPattern().Should().Be("(?:ab)+");
+        multiCharBuilder.Build().IsMatch("abab").Should().BeTrue();
+
+        using var lazyBuilder = RegexBuilder.Create().Digit().OneOrMore();
+        lazyBuilder.GetPattern().Should().Be(@"\d+");
+        lazyBuilder.Build().Match("123").Value.Should().Be("123");
+
+        lazyBuilder.Lazy();
+        lazyBuilder.GetPattern().Should().Be(@"\d+?");
+        lazyBuilder.Build().Match("123").Value.Should().Be("1");
+    }
+
+    [Test]
+    public void TestQuantifierAndLazyInsideScopedCallbackDoNotLeakOuterQuantifiableState()
+    {
+        using var quantifierBuilder = RegexBuilder.Create().Digit();
+        quantifierBuilder.Invoking(b => b.Group(inner => inner.OneOrMore()))
+            .Should().Throw<InvalidOperationException>();
+        quantifierBuilder.GetPattern().Should().Be(@"\d");
+        quantifierBuilder.OneOrMore().GetPattern().Should().Be(@"\d+");
+
+        using var lazyBuilder = RegexBuilder.Create().Digit().OneOrMore();
+        lazyBuilder.Invoking(b => b.Group(inner => inner.Lazy()))
+            .Should().Throw<InvalidOperationException>();
+        lazyBuilder.GetPattern().Should().Be(@"\d+");
+        lazyBuilder.Lazy().GetPattern().Should().Be(@"\d+?");
+    }
 }
