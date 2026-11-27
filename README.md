@@ -77,14 +77,16 @@ bool isValid = phoneRegex.IsMatch("123-456-7890"); // true
 ```
 
 ### Quantifiers
-Quantifiers modify the preceding element:
+Quantifiers modify the preceding element (multi-character `.Literal(...)` calls are automatically wrapped in `(?:...)` when quantified):
 ```csharp
-.Word().OneOrMore()      // \w+ - one or more word characters
-.Digit().ZeroOrMore()    // \d* - zero or more digits
-.Literal("s").Optional() // s? - optional 's'
-.Digit().Exactly(3)      // \d{3} - exactly 3 digits
-.Word().AtLeast(2)       // \w{2,} - at least 2 word characters
-.Digit().Between(2, 4)   // \d{2,4} - between 2 and 4 digits
+.Word().OneOrMore()             // \w+ - one or more word characters
+.Digit().ZeroOrMore()           // \d* - zero or more digits
+.Literal("s").Optional()        // s? - optional 's'
+.Digit().Exactly(3)             // \d{3} - exactly 3 digits
+.Word().AtLeast(2)              // \w{2,} - at least 2 word characters
+.Digit().Between(2, 4)          // \d{2,4} - between 2 and 4 digits
+.AnyChar().OneOrMore().Lazy()   // .+? - non-greedy (lazy) quantifier
+.Literal("ab").OneOrMore()      // (?:ab)+ - multi-char literals are grouped automatically
 ```
 
 ### Anchors
@@ -142,6 +144,8 @@ Quantifiers modify the preceding element:
 .Compiled()                // Compile for better performance
 .ExplicitCapture()         // Only named groups are captured
 .IgnorePatternWhitespace() // Ignore whitespace in pattern
+.CultureInvariant()        // Ignore cultural differences in case/comparisons
+.RightToLeft()             // Search from right to left
 ```
 
 ## Examples
@@ -252,20 +256,30 @@ passwordRegex.IsMatch("Password1"); // true
 passwordRegex.IsMatch("password");  // false (no uppercase or digit)
 ```
 
-## Utility Methods
+## Utility Methods & Resource Management
+
+`RegexBuilder` implements `IDisposable` to return its pooled pattern buffer when you are done building:
 
 ```csharp
+using var builder = RegexBuilder.Create()
+    .StartOfString()
+    .Digit().OneOrMore()
+    .EndOfString()
+    .IgnoreCase()
+    .Multiline();
+
 // Get the raw pattern string
-string pattern = builder.GetPattern();
+string pattern = builder.GetPattern(); // @"^\d+$"
 
 // Get the regex options
-RegexOptions options = builder.GetOptions();
+RegexOptions options = builder.GetOptions(); // RegexOptions.IgnoreCase | RegexOptions.Multiline
 
 // Convert to string representation
-string representation = builder.ToString(); // e.g., "/^\d+$/gi"
+string representation = builder.ToString(); // @"/^\d+$/IgnoreCase, Multiline"
 
-// Build the final Regex object
+// Build the final Regex object (optionally with a match timeout)
 Regex regex = builder.Build();
+Regex timedRegex = builder.Build(TimeSpan.FromSeconds(2));
 ```
 
 ## Best Practices
@@ -309,6 +323,22 @@ Regex regex = builder.Build();
 .Literal("test")
 .WordBoundary()
 ```
+
+### 6. Wrap `.Or()` alternatives in a group when anchoring
+Because `|` has the lowest precedence in regular expressions, `^cat|dog$` matches `"cat..."` or `"...dog"`. Wrap alternatives in `.Group(...)` or `.NonCapturingGroup(...)` when anchoring both sides:
+```csharp
+.StartOfString()
+.NonCapturingGroup(b => b.Literal("cat").Or().Literal("dog"))
+.EndOfString()
+// ^(?:cat|dog)$
+```
+
+### 7. Fail-fast validation
+`RegexBuilder` validates inputs eagerly without corrupting the accumulated pattern on error:
+- Quantifiers require a preceding quantifiable element and cannot be chained directly onto another quantifier (use `.Lazy()` for non-greedy matching or wrap in a group).
+- Negative counts in `.Exactly(n)` / `.AtLeast(n)` or `max < min` in `.Between(min, max)` throw `ArgumentOutOfRangeException`.
+- Invalid `.Set(...)` / `.NotSet(...)` character classes and invalid `.NamedGroup(...)` names throw `ArgumentException`.
+- `null` strings or callbacks throw `ArgumentNullException`, and callbacks that throw roll back any partial group/lookaround output.
 
 ## Performance Tips
 
