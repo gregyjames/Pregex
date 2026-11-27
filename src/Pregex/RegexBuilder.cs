@@ -8,10 +8,20 @@ namespace Pregex;
 /// </summary>
 public class RegexBuilder : IDisposable
 {
+    private enum LastTokenKind
+    {
+        None,
+        Quantifiable,
+        MultiCharLiteral,
+        QuantifiedGreedy,
+        QuantifiedLazy,
+    }
+
     private Utf16ValueStringBuilder _pattern;
     private RegexOptions _options;
     private bool _disposed;
     private int _lastMultiCharLiteralStart = -1;
+    private LastTokenKind _lastTokenKind = LastTokenKind.None;
 
     private RegexBuilder()
     {
@@ -40,14 +50,29 @@ public class RegexBuilder : IDisposable
         }
     }
 
-    private void WrapMultiCharLiteralIfNeeded()
+    private void EnsureQuantifiable()
     {
-        if (_lastMultiCharLiteralStart >= 0)
+        switch (_lastTokenKind)
         {
-            _pattern.Insert(_lastMultiCharLiteralStart, "(?:");
-            _pattern.Append(')');
-            _lastMultiCharLiteralStart = -1;
+            case LastTokenKind.None:
+                throw new InvalidOperationException("A quantifier must follow a quantifiable pattern element.");
+            case LastTokenKind.QuantifiedGreedy:
+            case LastTokenKind.QuantifiedLazy:
+                throw new InvalidOperationException(
+                    "Cannot apply a quantifier directly to an already quantified element. Wrap the element in a group first, or call Lazy() for non-greedy matching.");
+            case LastTokenKind.MultiCharLiteral:
+                _pattern.Insert(_lastMultiCharLiteralStart, "(?:");
+                _pattern.Append(')');
+                _lastMultiCharLiteralStart = -1;
+                break;
         }
+    }
+
+    private void AppendQuantifierSuffix(char symbol)
+    {
+        _pattern.Append(symbol);
+        _lastTokenKind = LastTokenKind.QuantifiedGreedy;
+        _lastMultiCharLiteralStart = -1;
     }
 
     /// <summary>
@@ -67,6 +92,7 @@ public class RegexBuilder : IDisposable
 
         if (str.Length == 0)
         {
+            _lastTokenKind = LastTokenKind.None;
             _lastMultiCharLiteralStart = -1;
             return this;
         }
@@ -77,7 +103,17 @@ public class RegexBuilder : IDisposable
             escaped = escaped.Replace("\v", @"\v");
         }
 
-        _lastMultiCharLiteralStart = str.Length > 1 ? _pattern.Length : -1;
+        if (str.Length > 1)
+        {
+            _lastMultiCharLiteralStart = _pattern.Length;
+            _lastTokenKind = LastTokenKind.MultiCharLiteral;
+        }
+        else
+        {
+            _lastMultiCharLiteralStart = -1;
+            _lastTokenKind = LastTokenKind.Quantifiable;
+        }
+
         _pattern.Append(escaped);
         return this;
     }
@@ -89,6 +125,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Digit()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\d");
         return this;
@@ -101,6 +138,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Word()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\w");
         return this;
@@ -113,6 +151,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Whitespace()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\s");
         return this;
@@ -125,6 +164,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotDigit()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\D");
         return this;
@@ -137,6 +177,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWord()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\W");
         return this;
@@ -149,6 +190,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWhitespace()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\S");
         return this;
@@ -161,6 +203,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder AnyChar()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(".");
         return this;
@@ -221,6 +264,7 @@ public class RegexBuilder : IDisposable
             throw new ArgumentException($"Invalid character class specification: {ex.Message}", nameof(chars), ex);
         }
 
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(candidate);
         return this;
@@ -271,6 +315,7 @@ public class RegexBuilder : IDisposable
             throw new ArgumentOutOfRangeException(nameof(start), $"Start character '{start}' cannot be greater than end character '{end}'.");
         }
 
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append('[');
         AppendEscapedRangeChar(ref _pattern, start);
@@ -330,11 +375,13 @@ public class RegexBuilder : IDisposable
     /// Appends a one-or-more quantifier (<c>+</c>) to the preceding element.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder OneOrMore()
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append("+");
+        EnsureQuantifiable();
+        AppendQuantifierSuffix('+');
         return this;
     }
 
@@ -342,11 +389,13 @@ public class RegexBuilder : IDisposable
     /// Appends a zero-or-more quantifier (<c>*</c>) to the preceding element.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder ZeroOrMore()
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append("*");
+        EnsureQuantifiable();
+        AppendQuantifierSuffix('*');
         return this;
     }
 
@@ -354,11 +403,13 @@ public class RegexBuilder : IDisposable
     /// Appends an optional quantifier (<c>?</c>) to the preceding element.
     /// </summary>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Optional()
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append("?");
+        EnsureQuantifiable();
+        AppendQuantifierSuffix('?');
         return this;
     }
 
@@ -367,11 +418,23 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="n">The exact number of repetitions.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="n"/> is negative.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Exactly(int n)
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append($"{{{n}}}");
+        if (n < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(n), n, "Repetition count cannot be negative.");
+        }
+
+        EnsureQuantifiable();
+        _pattern.Append('{');
+        _pattern.Append(n);
+        _pattern.Append('}');
+        _lastTokenKind = LastTokenKind.QuantifiedGreedy;
+        _lastMultiCharLiteralStart = -1;
         return this;
     }
 
@@ -380,11 +443,23 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="n">The minimum number of repetitions.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="n"/> is negative.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder AtLeast(int n)
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append($"{{{n},}}");
+        if (n < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(n), n, "Minimum repetition count cannot be negative.");
+        }
+
+        EnsureQuantifiable();
+        _pattern.Append('{');
+        _pattern.Append(n);
+        _pattern.Append(",}");
+        _lastTokenKind = LastTokenKind.QuantifiedGreedy;
+        _lastMultiCharLiteralStart = -1;
         return this;
     }
 
@@ -394,11 +469,49 @@ public class RegexBuilder : IDisposable
     /// <param name="min">The minimum number of repetitions.</param>
     /// <param name="max">The maximum number of repetitions.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="min"/> is negative or <paramref name="max"/> is less than <paramref name="min"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when there is no preceding quantifiable element or the preceding element is already quantified.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Between(int min, int max)
     {
         ThrowIfDisposed();
-        WrapMultiCharLiteralIfNeeded();
-        _pattern.Append($"{{{min},{max}}}");
+        if (min < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(min), min, "Minimum repetition count cannot be negative.");
+        }
+
+        if (max < min)
+        {
+            throw new ArgumentOutOfRangeException(nameof(max), max, $"Maximum repetition count ({max}) cannot be less than minimum ({min}).");
+        }
+
+        EnsureQuantifiable();
+        _pattern.Append('{');
+        _pattern.Append(min);
+        _pattern.Append(',');
+        _pattern.Append(max);
+        _pattern.Append('}');
+        _lastTokenKind = LastTokenKind.QuantifiedGreedy;
+        _lastMultiCharLiteralStart = -1;
+        return this;
+    }
+
+    /// <summary>
+    /// Modifies the preceding greedy quantifier to be non-greedy (lazy) by appending <c>?</c>.
+    /// </summary>
+    /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when not called immediately after a greedy quantifier.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
+    public RegexBuilder Lazy()
+    {
+        ThrowIfDisposed();
+        if (_lastTokenKind != LastTokenKind.QuantifiedGreedy)
+        {
+            throw new InvalidOperationException("Lazy() can only be applied immediately after a greedy quantifier.");
+        }
+
+        _pattern.Append('?');
+        _lastTokenKind = LastTokenKind.QuantifiedLazy;
         return this;
     }
 
@@ -410,6 +523,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder StartOfString()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("^");
         return this;
@@ -422,6 +536,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder EndOfString()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("$");
         return this;
@@ -434,6 +549,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder WordBoundary()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\b");
         return this;
@@ -446,6 +562,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NotWordBoundary()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(@"\B");
         return this;
@@ -460,9 +577,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Group(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(");
         callback(this);
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -476,9 +595,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NonCapturingGroup(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?:");
         callback(this);
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -493,9 +614,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NamedGroup(string name, Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append($"(?<{name}>");
         callback(this);
+        _lastTokenKind = LastTokenKind.Quantifiable;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -509,6 +632,7 @@ public class RegexBuilder : IDisposable
     public RegexBuilder Or()
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("|");
         return this;
@@ -523,9 +647,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder PositiveLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?=");
         callback(this);
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -539,9 +665,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NegativeLookahead(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?!");
         callback(this);
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -555,9 +683,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder PositiveLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?<=");
         callback(this);
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
@@ -571,9 +701,11 @@ public class RegexBuilder : IDisposable
     public RegexBuilder NegativeLookbehind(Action<RegexBuilder> callback)
     {
         ThrowIfDisposed();
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append("(?<!");
         callback(this);
+        _lastTokenKind = LastTokenKind.None;
         _lastMultiCharLiteralStart = -1;
         _pattern.Append(")");
         return this;
