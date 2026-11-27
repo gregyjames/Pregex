@@ -364,7 +364,12 @@ public class RegexBuilder : IDisposable
                 if (i + 1 < chars.Length)
                 {
                     char next = chars[++i];
-                    if (next is '\0' or '\t' or '\n' or '\r' or '\f' or '\v')
+                    if (next == 'c' && i + 1 < chars.Length)
+                    {
+                        target.Append(@"\c");
+                        target.Append(chars[++i]);
+                    }
+                    else if (next is '\0' or '\t' or '\n' or '\r' or '\f' or '\v')
                     {
                         AppendCharOrControlEscape(ref target, next);
                     }
