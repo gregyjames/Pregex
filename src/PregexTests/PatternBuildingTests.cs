@@ -106,6 +106,7 @@ public class PatternBuildingTests
 
         builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ArgumentOutOfRangeException>();
         builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(-2))).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.MaxValue)).Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Test]
