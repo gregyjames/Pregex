@@ -590,4 +590,82 @@ public class CharacterSetTests
             regex.IsMatch(" ").Should().BeFalse();
         }
     }
+
+    [TestCase(@"\c[", "\x1B", "[")]
+    [TestCase(@"\c\", "\x1C", @"\")]
+    [TestCase(@"\c]", "\x1D", "]")]
+    [TestCase(@"\c^", "\x1E", "^")]
+    public void TestSetAndNotSetControlEscapesQuantifiedWithCompiledAndIgnorePatternWhitespace(
+        string spec,
+        string expectedMatch,
+        string nonMatch)
+    {
+        using var setBuilder = RegexBuilder.Create()
+            .StartOfString()
+            .Set(spec).OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Compiled();
+        var setRegex = setBuilder.Build();
+        setRegex.IsMatch(expectedMatch + expectedMatch).Should().BeTrue();
+        setRegex.IsMatch(nonMatch).Should().BeFalse();
+
+        using var notSetBuilder = RegexBuilder.Create()
+            .StartOfString()
+            .NotSet(spec).OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Compiled();
+        var notSetRegex = notSetBuilder.Build();
+        notSetRegex.IsMatch(nonMatch + "a").Should().BeTrue();
+        notSetRegex.IsMatch(expectedMatch).Should().BeFalse();
+    }
+
+    [Test]
+    public void TestSetAndNotSetBoundaryBracketCaretHyphenCombinations()
+    {
+        using var leadingHyphenBracket = RegexBuilder.Create().StartOfString().Set("-[").EndOfString();
+        leadingHyphenBracket.GetPattern().Should().Be(@"^[-\[]$");
+        leadingHyphenBracket.Build().IsMatch("-").Should().BeTrue();
+        leadingHyphenBracket.Build().IsMatch("[").Should().BeTrue();
+        leadingHyphenBracket.Build().IsMatch("a").Should().BeFalse();
+
+        using var notLeadingHyphenBracket = RegexBuilder.Create().StartOfString().NotSet("-[").EndOfString();
+        notLeadingHyphenBracket.GetPattern().Should().Be(@"^[^-\[]$");
+        notLeadingHyphenBracket.Build().IsMatch("-").Should().BeFalse();
+        notLeadingHyphenBracket.Build().IsMatch("[").Should().BeFalse();
+        notLeadingHyphenBracket.Build().IsMatch("a").Should().BeTrue();
+
+        using var bracketRange = RegexBuilder.Create().StartOfString().Set("[-]").EndOfString();
+        bracketRange.GetPattern().Should().Be(@"^[\[-\]]$");
+        bracketRange.Build().IsMatch(@"\").Should().BeTrue();
+        bracketRange.Build().IsMatch("a").Should().BeFalse();
+
+        using var caretToLetter = RegexBuilder.Create().StartOfString().Set("^-a").EndOfString();
+        caretToLetter.GetPattern().Should().Be(@"^[\^-a]$");
+        caretToLetter.Build().IsMatch("_").Should().BeTrue();
+        caretToLetter.Build().IsMatch("b").Should().BeFalse();
+
+        using var controlToRightBracket = RegexBuilder.Create().StartOfString().Set(@"\c]-]").EndOfString();
+        controlToRightBracket.GetPattern().Should().Be(@"^[\c]-\]]$");
+        controlToRightBracket.Build().IsMatch("\x1D").Should().BeTrue();
+        controlToRightBracket.Build().IsMatch("A").Should().BeTrue();
+        controlToRightBracket.Build().IsMatch("^").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestRangeSurrogateBoundsWithIgnoreCaseAndCompiled()
+    {
+        var regex = RegexBuilder.Create()
+            .StartOfString()
+            .Range('\uD800', '\uDFFF')
+            .EndOfString()
+            .IgnoreCase()
+            .Compiled()
+            .Build();
+
+        regex.IsMatch("\uD800").Should().BeTrue();
+        regex.IsMatch("\uDFFF").Should().BeTrue();
+        regex.IsMatch("a").Should().BeFalse();
+    }
 }

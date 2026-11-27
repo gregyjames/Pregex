@@ -375,4 +375,29 @@ public class QuantifierTests
         lazyBuilder.GetPattern().Should().Be(@"\d+");
         lazyBuilder.Lazy().GetPattern().Should().Be(@"\d+?");
     }
+
+    [Test]
+    public void TestNamedAndNonCapturingGroupWithMultiCharLiteralInsideDoNotDoubleWrap()
+    {
+        using var nonCapturing = RegexBuilder.Create()
+            .NonCapturingGroup(b => b.Literal("ab"))
+            .OneOrMore();
+        nonCapturing.GetPattern().Should().Be("(?:ab)+");
+        nonCapturing.Build().IsMatch("abab").Should().BeTrue();
+
+        using var named = RegexBuilder.Create()
+            .NamedGroup("pair", b => b.Literal("ab"))
+            .OneOrMore();
+        named.GetPattern().Should().Be("(?<pair>ab)+");
+        named.Build().Match("abab").Groups["pair"].Captures.Count.Should().Be(2);
+    }
+
+    [Test]
+    public void TestBetweenIntMaxValueEqualBoundsBuildsValidRegex()
+    {
+        using var builder = RegexBuilder.Create().Digit().Between(int.MaxValue, int.MaxValue);
+        builder.GetPattern().Should().Be($@"\d{{{int.MaxValue},{int.MaxValue}}}");
+        builder.Build().IsMatch("1").Should().BeFalse();
+        builder.Compiled().Build().IsMatch("1").Should().BeFalse();
+    }
 }

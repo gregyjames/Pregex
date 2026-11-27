@@ -144,4 +144,19 @@ public class PatternBuildingTests
         builder.GetPattern().Should().Be(@"\d+abc$");
         builder.ToString().Should().Be(@"/\d+abc$/None");
     }
+
+    [Test]
+    public void TestFailedBuildWithInvalidTimeoutPreservesBuilderAndMultiCharState()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab").IgnoreCase();
+
+        builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(-2))).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.MaxValue)).Should().Throw<ArgumentOutOfRangeException>();
+
+        builder.GetPattern().Should().Be("ab");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+        builder.Build(TimeSpan.FromSeconds(1)).IsMatch("ABab").Should().BeTrue();
+    }
 }

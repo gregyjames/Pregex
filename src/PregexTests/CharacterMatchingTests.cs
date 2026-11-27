@@ -330,4 +330,51 @@ public class CharacterMatchingTests
         emojiRegex.IsMatch("😀😀").Should().BeTrue();
         emojiRegex.IsMatch("😀😀😀").Should().BeFalse();
     }
+
+    [Test]
+    public void TestSingleCharLiteralAllAsciiCharactersQuantifiedUnderIgnorePatternWhitespaceAndCompiled()
+    {
+        for (int code = 0; code <= 127; code++)
+        {
+            char c = (char)code;
+            string s = c.ToString();
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(s).OneOrMore()
+                .EndOfString()
+                .IgnorePatternWhitespace()
+                .Compiled();
+
+            var regex = builder.Build();
+            regex.IsMatch(s).Should().BeTrue($"single ASCII U+{code:X4} should match once");
+            regex.IsMatch(s + s).Should().BeTrue($"single ASCII U+{code:X4} should match twice");
+            string other = code == 'x' ? "y" : "x";
+            regex.IsMatch(other).Should().BeFalse($"single ASCII U+{code:X4} should not match '{other}'");
+        }
+    }
+
+    [Test]
+    public void TestLiteralChainingTransitionsBetweenSingleAndMultiCharWithQuantifier()
+    {
+        using var multiThenMulti = RegexBuilder.Create().Literal("ab").Literal("cd").OneOrMore();
+        multiThenMulti.GetPattern().Should().Be("ab(?:cd)+");
+
+        using var multiThenSingle = RegexBuilder.Create().Literal("ab").Literal("c").OneOrMore();
+        multiThenSingle.GetPattern().Should().Be("abc+");
+
+        using var singleThenMulti = RegexBuilder.Create().Literal("a").Literal("bc").OneOrMore();
+        singleThenMulti.GetPattern().Should().Be("a(?:bc)+");
+
+        using var braces = RegexBuilder.Create()
+            .StartOfString()
+            .Literal("}").Exactly(2)
+            .Literal("]").OneOrMore()
+            .Literal("{2}")
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Compiled();
+        var bracesRegex = braces.Build();
+        bracesRegex.IsMatch("}}]]{2}").Should().BeTrue();
+        bracesRegex.IsMatch("}}]]xx").Should().BeFalse();
+    }
 }
