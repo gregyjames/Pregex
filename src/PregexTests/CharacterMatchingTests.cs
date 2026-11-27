@@ -80,4 +80,97 @@ public class CharacterMatchingTests
         regex.IsMatch("\t").Should().BeFalse();
         regex.IsMatch("\n").Should().BeFalse();
     }
+
+    [Test]
+    public void TestLiteralThrowsOnNullWithoutCorruptingBuilder()
+    {
+        using var builder = RegexBuilder.Create().Digit();
+        builder.Invoking(b => b.Literal(null!)).Should().Throw<ArgumentNullException>();
+        builder.GetPattern().Should().Be(@"\d");
+    }
+
+    [Test]
+    public void TestLiteralEmptyStringIsNoOpAndResetsMultiCharState()
+    {
+        using var builder = RegexBuilder.Create().Literal("abc").Literal("");
+        builder.GetPattern().Should().Be("abc");
+        builder.Build().IsMatch("abc").Should().BeTrue();
+    }
+
+    [TestCase(@"\")]
+    [TestCase(".")]
+    [TestCase("*")]
+    [TestCase("+")]
+    [TestCase("?")]
+    [TestCase("(")]
+    [TestCase(")")]
+    [TestCase("[")]
+    [TestCase("]")]
+    [TestCase("{")]
+    [TestCase("}")]
+    [TestCase("^")]
+    [TestCase("$")]
+    [TestCase("|")]
+    [TestCase("#")]
+    [TestCase(" ")]
+    public void TestLiteralSingleMetacharacterMatchesLiterally(string ch)
+    {
+        using var builder = RegexBuilder.Create().StartOfString().Literal(ch).EndOfString();
+        var regex = builder.Build();
+        regex.IsMatch(ch).Should().BeTrue();
+        if (ch != "x")
+        {
+            regex.IsMatch("x").Should().BeFalse();
+        }
+    }
+
+    [Test]
+    public void TestLiteralMultiCharWithMetacharacters()
+    {
+        using var builder = RegexBuilder.Create().StartOfString().Literal(@"a+b*c?(d)[e]{1}^$|#\").EndOfString();
+        var regex = builder.Build();
+        regex.IsMatch(@"a+b*c?(d)[e]{1}^$|#\").Should().BeTrue();
+        regex.IsMatch("abcde1").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestLiteralSurrogatePairEmojiAndCombiningMarks()
+    {
+        using var emojiBuilder = RegexBuilder.Create().StartOfString().Literal("😀").OneOrMore().EndOfString();
+        var emojiRegex = emojiBuilder.Build();
+        emojiRegex.IsMatch("😀").Should().BeTrue();
+        emojiRegex.IsMatch("😀😀").Should().BeTrue();
+        emojiRegex.IsMatch("😃").Should().BeFalse();
+
+        string combining = "e\u0301";
+        using var combiningBuilder = RegexBuilder.Create().StartOfString().Literal(combining).EndOfString();
+        var combiningRegex = combiningBuilder.Build();
+        combiningRegex.IsMatch(combining).Should().BeTrue();
+        combiningRegex.IsMatch("é").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestLiteralControlCharactersAndIgnorePatternWhitespace()
+    {
+        const string controls = "\0\t\n\r\f\v #";
+        using var builder = RegexBuilder.Create()
+            .StartOfString()
+            .Literal(controls)
+            .EndOfString()
+            .IgnorePatternWhitespace();
+
+        var regex = builder.Build();
+        regex.IsMatch(controls).Should().BeTrue();
+        regex.IsMatch("").Should().BeFalse();
+    }
+
+    [Test]
+    public void TestLargeLiteralWithQuantifier()
+    {
+        string large = new string('a', 12000);
+        using var builder = RegexBuilder.Create().StartOfString().Literal(large).Exactly(2).EndOfString();
+        var regex = builder.Build();
+        regex.IsMatch(large + large).Should().BeTrue();
+        regex.IsMatch(large).Should().BeFalse();
+    }
 }

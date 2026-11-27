@@ -55,11 +55,30 @@ public class RegexBuilder : IDisposable
     /// </summary>
     /// <param name="str">The literal text to match.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="str"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Literal(string str)
     {
         ThrowIfDisposed();
+        if (str is null)
+        {
+            throw new ArgumentNullException(nameof(str));
+        }
+
+        if (str.Length == 0)
+        {
+            _lastMultiCharLiteralStart = -1;
+            return this;
+        }
+
+        string escaped = Regex.Escape(str);
+        if (escaped.IndexOf('\v') >= 0)
+        {
+            escaped = escaped.Replace("\v", @"\v");
+        }
+
         _lastMultiCharLiteralStart = str.Length > 1 ? _pattern.Length : -1;
-        _pattern.Append(Regex.Escape(str));
+        _pattern.Append(escaped);
         return this;
     }
 
