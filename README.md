@@ -261,7 +261,7 @@ passwordRegex.IsMatch("password");  // false (no uppercase or digit)
 
 ## Utility Methods & Resource Management
 
-`RegexBuilder` implements `IDisposable` to return its pooled pattern buffer when you are done building:
+`RegexBuilder` instances are mutable, not thread-safe, and implement `IDisposable` to return their pooled pattern buffer when you are done building:
 
 ```csharp
 using var builder = RegexBuilder.Create()
