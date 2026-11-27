@@ -377,4 +377,61 @@ public class CharacterMatchingTests
         bracesRegex.IsMatch("}}]]{2}").Should().BeTrue();
         bracesRegex.IsMatch("}}]]xx").Should().BeFalse();
     }
+
+    [Test]
+    public void TestLiteralAllBmpCharactersRoundTripUnderIgnorePatternWhitespace()
+    {
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            string s = ((char)code).ToString();
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(s)
+                .EndOfString()
+                .IgnorePatternWhitespace();
+
+            var regex = builder.Build();
+            regex.IsMatch(s).Should().BeTrue($"BMP character U+{code:X4} should match itself");
+            string other = code == 'x' ? "y" : "x";
+            regex.IsMatch(other).Should().BeFalse($"BMP character U+{code:X4} should not match '{other}'");
+        }
+    }
+
+    [Test]
+    public void TestLiteralAllBmpWhitespaceCharactersWithCompiledAndIgnorePatternWhitespace()
+    {
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            char c = (char)code;
+            if (!char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+
+            string single = c.ToString();
+            using var singleBuilder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(single).OneOrMore()
+                .EndOfString()
+                .IgnorePatternWhitespace()
+                .Compiled();
+
+            var singleRegex = singleBuilder.Build();
+            singleRegex.IsMatch(single).Should().BeTrue($"whitespace U+{code:X4} should match once");
+            singleRegex.IsMatch(single + single).Should().BeTrue($"whitespace U+{code:X4} should match twice");
+            singleRegex.IsMatch("x").Should().BeFalse($"whitespace U+{code:X4} should not match 'x'");
+
+            string pair = "w" + c;
+            using var pairBuilder = RegexBuilder.Create()
+                .StartOfString()
+                .Literal(pair).OneOrMore()
+                .EndOfString()
+                .IgnorePatternWhitespace()
+                .Compiled();
+
+            var pairRegex = pairBuilder.Build();
+            pairRegex.IsMatch(pair + pair).Should().BeTrue($"pair with whitespace U+{code:X4} should match twice");
+            pairRegex.IsMatch(pair + "w").Should().BeFalse($"pair with whitespace U+{code:X4} should require full pair");
+        }
+    }
 }

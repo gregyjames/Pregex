@@ -668,4 +668,110 @@ public class CharacterSetTests
         regex.IsMatch("\uDFFF").Should().BeTrue();
         regex.IsMatch("a").Should().BeFalse();
     }
+
+    [Test]
+    public void TestSetAndNotSetAllBmpSingleCharactersRoundTrip()
+    {
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            char c = (char)code;
+            string spec = c == '\\' ? @"\" : c.ToString();
+            string target = c.ToString();
+            string other = code == 'x' ? "y" : "x";
+
+            using var setBuilder = RegexBuilder.Create()
+                .StartOfString()
+                .Set(spec)
+                .EndOfString()
+                .IgnorePatternWhitespace();
+            var setRegex = setBuilder.Build();
+            setRegex.IsMatch(target).Should().BeTrue($"Set should match BMP U+{code:X4}");
+            setRegex.IsMatch(other).Should().BeFalse($"Set for U+{code:X4} should not match '{other}'");
+
+            using var notSetBuilder = RegexBuilder.Create()
+                .StartOfString()
+                .NotSet(spec)
+                .EndOfString()
+                .IgnorePatternWhitespace();
+            var notSetRegex = notSetBuilder.Build();
+            notSetRegex.IsMatch(target).Should().BeFalse($"NotSet should exclude BMP U+{code:X4}");
+            notSetRegex.IsMatch(other).Should().BeTrue($"NotSet for U+{code:X4} should match '{other}'");
+        }
+    }
+
+    [Test]
+    public void TestRangeAllBmpSingleCharacterBoundsUnderIgnorePatternWhitespace()
+    {
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            char c = (char)code;
+            using var builder = RegexBuilder.Create()
+                .StartOfString()
+                .Range(c, c)
+                .EndOfString()
+                .IgnorePatternWhitespace();
+
+            var regex = builder.Build();
+            regex.IsMatch(c.ToString()).Should().BeTrue($"Range(U+{code:X4}, U+{code:X4}) should match itself");
+            string other = code == 'x' ? "y" : "x";
+            regex.IsMatch(other).Should().BeFalse($"Range(U+{code:X4}, U+{code:X4}) should not match '{other}'");
+        }
+    }
+
+    [Test]
+    public void TestSetAndNotSetAllAsciiControlEscapeDesignators()
+    {
+        for (int code = 0; code <= 127; code++)
+        {
+            char designator = (char)code;
+            string spec = @"\c" + designator;
+            bool isValid = (designator >= '@' && designator <= '_') || (designator >= 'a' && designator <= 'z');
+
+            using var builder = RegexBuilder.Create().Literal("ab");
+            if (isValid)
+            {
+                string expectedControl = ((char)(code & 0x1F)).ToString();
+                var setRegex = builder.Set(spec).Build();
+                setRegex.IsMatch("ab" + expectedControl).Should().BeTrue($"\\c{designator} should match U+{code & 0x1F:X4}");
+
+                using var notSetBuilder = RegexBuilder.Create().StartOfString().NotSet(spec).EndOfString();
+                var notSetRegex = notSetBuilder.Build();
+                notSetRegex.IsMatch(expectedControl).Should().BeFalse($"NotSet(\\c{designator}) should exclude U+{code & 0x1F:X4}");
+                notSetRegex.IsMatch("~").Should().BeTrue();
+            }
+            else
+            {
+                builder.Invoking(b => b.Set(spec)).Should().Throw<ArgumentException>($"\\c U+{code:X4} should be rejected");
+                builder.Invoking(b => b.NotSet(spec)).Should().Throw<ArgumentException>($"NotSet \\c U+{code:X4} should be rejected");
+                builder.GetPattern().Should().Be("ab");
+                builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+            }
+        }
+    }
+
+    [Test]
+    public void TestSetAndNotSetControlEscapeRanges()
+    {
+        using var fullControlRange = RegexBuilder.Create()
+            .StartOfString()
+            .Set(@"\c@-\c_")
+            .EndOfString()
+            .Compiled();
+
+        var fullRegex = fullControlRange.Build();
+        for (int code = 0; code <= 0x1F; code++)
+        {
+            fullRegex.IsMatch(((char)code).ToString()).Should().BeTrue();
+        }
+        fullRegex.IsMatch(" ").Should().BeFalse();
+
+        using var notControlRange = RegexBuilder.Create()
+            .StartOfString()
+            .NotSet(@"\c@-\c_")
+            .EndOfString();
+        var notRegex = notControlRange.Build();
+        notRegex.IsMatch("\0").Should().BeFalse();
+        notRegex.IsMatch("\x1F").Should().BeFalse();
+        notRegex.IsMatch(" ").Should().BeTrue();
+    }
 }

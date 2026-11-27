@@ -284,4 +284,46 @@ public class GroupTests
         builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
         builder.Build().IsMatch("ABC").Should().BeTrue();
     }
+
+    [Test]
+    public void TestAllGroupTypesRollbackStateAndThrowOnDisposedCallback()
+    {
+        using var nonCap = RegexBuilder.Create().Literal("ab").IgnoreCase();
+        nonCap.Invoking(b => b.NonCapturingGroup(inner =>
+        {
+            inner.Digit().Singleline();
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+        nonCap.GetPattern().Should().Be("ab");
+        nonCap.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        nonCap.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+
+        using var named = RegexBuilder.Create().Literal("cd").Multiline();
+        named.Invoking(b => b.NamedGroup("grp", inner =>
+        {
+            inner.Word().Compiled();
+            throw new InvalidOperationException("boom");
+        })).Should().Throw<InvalidOperationException>();
+        named.GetPattern().Should().Be("cd");
+        named.GetOptions().Should().Be(RegexOptions.Multiline);
+        named.OneOrMore().GetPattern().Should().Be("(?:cd)+");
+
+        var disposedNonCap = RegexBuilder.Create().Digit();
+        disposedNonCap.Invoking(b => b.NonCapturingGroup(inner => inner.Dispose()))
+            .Should().Throw<ObjectDisposedException>();
+
+        var disposedNamed = RegexBuilder.Create().Digit();
+        disposedNamed.Invoking(b => b.NamedGroup("g", inner => inner.Dispose()))
+            .Should().Throw<ObjectDisposedException>();
+    }
+
+    [Test]
+    public void TestNamedGroupRejectsSurrogatePairsWithoutCorruptingBuilder()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab");
+        builder.Invoking(b => b.NamedGroup("😀", inner => inner.Digit())).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NamedGroup("a😀", inner => inner.Digit())).Should().Throw<ArgumentException>();
+        builder.GetPattern().Should().Be("ab");
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+    }
 }

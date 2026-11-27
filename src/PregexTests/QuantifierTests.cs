@@ -400,4 +400,45 @@ public class QuantifierTests
         builder.Build().IsMatch("1").Should().BeFalse();
         builder.Compiled().Build().IsMatch("1").Should().BeFalse();
     }
+
+    [Test]
+    public void TestIntMaxValueQuantifiersSupportLazyModifier()
+    {
+        using var exactlyLazy = RegexBuilder.Create().Digit().Exactly(int.MaxValue).Lazy();
+        exactlyLazy.GetPattern().Should().Be($@"\d{{{int.MaxValue}}}?");
+        exactlyLazy.Build().IsMatch("1").Should().BeFalse();
+
+        using var atLeastLazy = RegexBuilder.Create().Digit().AtLeast(int.MaxValue).Lazy();
+        atLeastLazy.GetPattern().Should().Be($@"\d{{{int.MaxValue},}}?");
+        atLeastLazy.Build().IsMatch("1").Should().BeFalse();
+
+        using var betweenLazy = RegexBuilder.Create().Digit().Between(0, int.MaxValue).Lazy();
+        betweenLazy.GetPattern().Should().Be($@"\d{{0,{int.MaxValue}}}?");
+        betweenLazy.Build().Match("123").Value.Should().Be("");
+    }
+
+    [Test]
+    public void TestNonQuantifiableElementsResetMultiCharLiteralState()
+    {
+        Action<RegexBuilder>[] nonQuantifiableOps =
+        [
+            b => b.StartOfString(),
+            b => b.EndOfString(),
+            b => b.WordBoundary(),
+            b => b.NotWordBoundary(),
+            b => b.Or(),
+            b => b.PositiveLookahead(inner => inner.Digit()),
+            b => b.NegativeLookahead(inner => inner.Digit()),
+            b => b.PositiveLookbehind(inner => inner.Digit()),
+            b => b.NegativeLookbehind(inner => inner.Digit()),
+            b => b.Literal(""),
+        ];
+
+        foreach (var op in nonQuantifiableOps)
+        {
+            using var builder = RegexBuilder.Create().Literal("ab");
+            op(builder);
+            builder.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
+        }
+    }
 }

@@ -128,4 +128,34 @@ public class LookaroundTests
             .IgnoreCase();
         afterLookaheadOption.Invoking(b => b.OneOrMore()).Should().Throw<InvalidOperationException>();
     }
+
+    [Test]
+    public void TestAllLookaroundTypesRollbackOnExceptionAndThrowOnDisposedCallback()
+    {
+        Action<RegexBuilder, Action<RegexBuilder>>[] lookarounds =
+        [
+            (b, cb) => b.PositiveLookahead(cb),
+            (b, cb) => b.NegativeLookahead(cb),
+            (b, cb) => b.PositiveLookbehind(cb),
+            (b, cb) => b.NegativeLookbehind(cb),
+        ];
+
+        foreach (var invokeLookaround in lookarounds)
+        {
+            using var rollbackBuilder = RegexBuilder.Create().Literal("ab").IgnoreCase();
+            rollbackBuilder.Invoking(b => invokeLookaround(b, inner =>
+            {
+                inner.Literal("xyz").Singleline();
+                throw new InvalidOperationException("boom");
+            })).Should().Throw<InvalidOperationException>();
+
+            rollbackBuilder.GetPattern().Should().Be("ab");
+            rollbackBuilder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+            rollbackBuilder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+
+            var disposeBuilder = RegexBuilder.Create().Digit();
+            disposeBuilder.Invoking(b => invokeLookaround(b, inner => inner.Dispose()))
+                .Should().Throw<ObjectDisposedException>();
+        }
+    }
 }
