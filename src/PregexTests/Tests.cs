@@ -857,4 +857,45 @@ public class Tests
         Assert.IsFalse(regex.IsMatch("12-25-2023"));
     }
     #endregion
+
+    #region IDisposable Tests
+    [Test]
+    public void TestUsingBlockWorks()
+    {
+        Regex regex;
+        using (var builder = RegexBuilder.Create().StartOfString().Digit().OneOrMore().EndOfString())
+        {
+            regex = builder.Build();
+        }
+
+        Assert.That(regex.IsMatch("12345"), Is.True);
+        Assert.That(regex.IsMatch("abc"), Is.False);
+    }
+
+    [Test]
+    public void TestDisposeIsIdempotent()
+    {
+        var builder = RegexBuilder.Create().Literal("test");
+        builder.Dispose();
+
+        Assert.DoesNotThrow(() => builder.Dispose());
+    }
+
+    [Test]
+    public void TestMethodsAfterDisposeThrowObjectDisposedException()
+    {
+        var builder = RegexBuilder.Create().Digit();
+        builder.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => builder.Build());
+        Assert.Throws<ObjectDisposedException>(() => builder.GetPattern());
+        Assert.Throws<ObjectDisposedException>(() => builder.GetOptions());
+        Assert.Throws<ObjectDisposedException>(() => builder.ToString());
+        Assert.Throws<ObjectDisposedException>(() => builder.Literal("a"));
+        Assert.Throws<ObjectDisposedException>(() => builder.Digit());
+        Assert.Throws<ObjectDisposedException>(() => builder.OneOrMore());
+        Assert.Throws<ObjectDisposedException>(() => builder.Group(b => b.Word()));
+        Assert.Throws<ObjectDisposedException>(() => builder.IgnoreCase());
+    }
+    #endregion
 }
