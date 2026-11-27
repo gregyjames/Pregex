@@ -70,7 +70,7 @@ bool isValid = phoneRegex.IsMatch("123-456-7890"); // true
 ```
 
 ### Character Sets
-`Set` and `NotSet` accept regex character class ranges (such as `"a-z0-9"`) and escape sequences (such as `@"\d"` or `@"\-"`), while escaping unescaped `[`, `]`, `^`, trailing `\`, and control characters (`\0`, `\t`, `\n`, `\r`, `\f`, `\v`). Use `Range` when you want a literal `[start-end]` character range without interpreting regex syntax:
+`Set` and `NotSet` accept regex character class ranges (such as `"a-z0-9"`) and escape sequences (such as `@"\d"`, `@"\-"`, or `@"\c["`), while escaping unescaped `[`, `]`, `^`, trailing `\`, and control characters (`\0`, `\t`, `\n`, `\r`, `\f`, `\v`), and preserving `\c` control-escape designators. Use `Range` when you want a literal `[start-end]` character range without interpreting regex syntax:
 ```csharp
 .Set("abc")           // [abc] - matches a, b, or c
 .Set("a-z0-9")        // [a-z0-9] - matches lowercase letters or digits

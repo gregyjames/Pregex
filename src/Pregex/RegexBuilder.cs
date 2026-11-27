@@ -290,9 +290,9 @@ public class RegexBuilder : IDisposable
     /// <param name="chars">The characters or ranges to include in the character class.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
     /// <remarks>
-    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c> or <c>@"\-"</c>).
+    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c>, <c>@"\-"</c>, or <c>@"\c["</c>).
     /// Unescaped <c>[</c>, <c>]</c>, <c>^</c>, trailing <c>\</c>, and control characters (<c>\0</c>, <c>\t</c>, <c>\n</c>, <c>\r</c>, <c>\f</c>, <c>\v</c>)
-    /// are automatically escaped.
+    /// are automatically escaped, while <c>\c</c> control-escape designators (such as <c>@"\c["</c> or <c>@"\c]"</c>) are preserved.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
@@ -308,9 +308,9 @@ public class RegexBuilder : IDisposable
     /// <param name="chars">The characters or ranges to exclude from matching.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
     /// <remarks>
-    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c> or <c>@"\-"</c>).
+    /// Supports regex character class ranges (such as <c>"a-z0-9"</c>) and escape sequences (such as <c>@"\d"</c>, <c>@"\-"</c>, or <c>@"\c["</c>).
     /// Unescaped <c>[</c>, <c>]</c>, <c>^</c>, trailing <c>\</c>, and control characters (<c>\0</c>, <c>\t</c>, <c>\n</c>, <c>\r</c>, <c>\f</c>, <c>\v</c>)
-    /// are automatically escaped.
+    /// are automatically escaped, while <c>\c</c> control-escape designators (such as <c>@"\c["</c> or <c>@"\c]"</c>) are preserved.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="chars"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="chars"/> is empty or produces an invalid character class.</exception>
