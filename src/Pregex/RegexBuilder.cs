@@ -141,6 +141,7 @@ public class RegexBuilder : IDisposable
     /// Special regex metacharacters, whitespace, <c>#</c>, vertical tabs (<c>\v</c>), and null characters (<c>\x00</c>)
     /// are escaped so the input matches literally even when <see cref="RegexOptions.IgnorePatternWhitespace"/> is enabled.
     /// Multi-character literals are automatically wrapped in a non-capturing group (<c>(?:...)</c>) if quantified.
+    /// Passing an empty string appends nothing and clears the preceding quantifiable element state.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="str"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
@@ -402,6 +403,11 @@ public class RegexBuilder : IDisposable
     /// <param name="start">The inclusive lower bound character of the range.</param>
     /// <param name="end">The inclusive upper bound character of the range.</param>
     /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <remarks>
+    /// Both <paramref name="start"/> and <paramref name="end"/> are treated as literal characters; special character-class
+    /// characters (<c>-</c>, <c>\</c>, <c>[</c>, <c>]</c>, <c>^</c>) and control characters (<c>\0</c>, <c>\t</c>, <c>\n</c>,
+    /// <c>\r</c>, <c>\f</c>, <c>\v</c>) are automatically escaped.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="start"/> is greater than <paramref name="end"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexBuilder Range(char start, char end)

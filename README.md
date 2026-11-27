@@ -340,7 +340,7 @@ Because `|` has the lowest precedence in regular expressions, `^cat|dog$` matche
 
 ### 7. Fail-fast validation
 `RegexBuilder` validates inputs eagerly without corrupting the accumulated pattern on error:
-- Quantifiers require a preceding quantifiable element and cannot be chained directly onto another quantifier (use `.Lazy()` right after a greedy quantifier for non-greedy matching, or wrap in a group).
+- Quantifiers require a preceding quantifiable element and cannot be chained directly onto another quantifier (use `.Lazy()` right after a greedy quantifier for non-greedy matching, or wrap in a group). Calling `.Literal("")` is a no-op that clears the preceding quantifiable element.
 - Negative counts in `.Exactly(n)` / `.AtLeast(n)`, `max < min` in `.Between(min, max)`, and `start > end` in `.Range(start, end)` throw `ArgumentOutOfRangeException`.
 - Invalid `.Set(...)` / `.NotSet(...)` character classes and invalid `.NamedGroup(...)` names throw `ArgumentException`.
 - `null` strings or callbacks throw `ArgumentNullException`, and callbacks that throw roll back any partial group/lookaround output and options.
