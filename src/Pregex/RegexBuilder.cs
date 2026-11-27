@@ -856,11 +856,36 @@ public class RegexBuilder : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Enables <see cref="RegexOptions.CultureInvariant"/> on the built regular expression.
+    /// </summary>
+    /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
+    public RegexBuilder CultureInvariant()
+    {
+        ThrowIfDisposed();
+        _options |= RegexOptions.CultureInvariant;
+        return this;
+    }
+
+    /// <summary>
+    /// Enables <see cref="RegexOptions.RightToLeft"/> on the built regular expression.
+    /// </summary>
+    /// <returns>The current <see cref="RegexBuilder"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
+    public RegexBuilder RightToLeft()
+    {
+        ThrowIfDisposed();
+        _options |= RegexOptions.RightToLeft;
+        return this;
+    }
+
     // Build methods
     /// <summary>
     /// Builds and returns a <see cref="Regex"/> from the accumulated pattern and options.
     /// </summary>
     /// <returns>A new <see cref="Regex"/> instance.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public Regex Build()
     {
         ThrowIfDisposed();
@@ -868,9 +893,23 @@ public class RegexBuilder : IDisposable
     }
 
     /// <summary>
+    /// Builds and returns a <see cref="Regex"/> from the accumulated pattern, options, and match timeout.
+    /// </summary>
+    /// <param name="matchTimeout">A time-out interval, or <see cref="Regex.InfiniteMatchTimeout"/> to indicate that the method should not time out.</param>
+    /// <returns>A new <see cref="Regex"/> instance.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="matchTimeout"/> is negative (other than <see cref="Regex.InfiniteMatchTimeout"/>) or zero.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
+    public Regex Build(TimeSpan matchTimeout)
+    {
+        ThrowIfDisposed();
+        return new Regex(_pattern.ToString(), _options, matchTimeout);
+    }
+
+    /// <summary>
     /// Returns the raw regular expression pattern string.
     /// </summary>
     /// <returns>The built regular expression pattern.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public string GetPattern()
     {
         ThrowIfDisposed();
@@ -881,6 +920,7 @@ public class RegexBuilder : IDisposable
     /// Returns the configured <see cref="RegexOptions"/> flags.
     /// </summary>
     /// <returns>The configured <see cref="RegexOptions"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public RegexOptions GetOptions()
     {
         ThrowIfDisposed();
@@ -891,10 +931,11 @@ public class RegexBuilder : IDisposable
     /// Returns a formatted string containing the pattern and options.
     /// </summary>
     /// <returns>A string in the form <c>/{pattern}/{options}</c>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the builder has been disposed.</exception>
     public override string ToString()
     {
         ThrowIfDisposed();
-        return $"/{_pattern}/{_options}";
+        return $"/{_pattern.ToString()}/{_options}";
     }
 
     // IDisposable

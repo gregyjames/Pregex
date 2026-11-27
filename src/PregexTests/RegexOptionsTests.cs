@@ -82,4 +82,29 @@ public class RegexOptionsTests
         // Pattern should still work normally
         regex.IsMatch("123-4567").Should().BeTrue();
     }
+
+    [Test]
+    public void TestCultureInvariant()
+    {
+        var regex = RegexBuilder.Create()
+            .Literal("i")
+            .IgnoreCase()
+            .CultureInvariant()
+            .Build();
+
+        regex.Options.Should().HaveFlag(RegexOptions.CultureInvariant);
+        regex.IsMatch("I").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestRightToLeft()
+    {
+        var regex = RegexBuilder.Create()
+            .Digit().OneOrMore()
+            .RightToLeft()
+            .Build();
+
+        regex.Options.Should().HaveFlag(RegexOptions.RightToLeft);
+        regex.Match("a12b34").Value.Should().Be("34");
+    }
 }

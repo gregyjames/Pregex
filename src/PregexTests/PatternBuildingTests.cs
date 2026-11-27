@@ -91,4 +91,38 @@ public class PatternBuildingTests
             .Word().OneOrMore();
         builder.GetPattern().Should().Be(@"https?://\w+");
     }
+
+    [Test]
+    public void TestBuildWithMatchTimeout()
+    {
+        using var builder = RegexBuilder.Create().Digit().OneOrMore();
+
+        var timed = builder.Build(TimeSpan.FromSeconds(2));
+        timed.MatchTimeout.Should().Be(TimeSpan.FromSeconds(2));
+        timed.IsMatch("123").Should().BeTrue();
+
+        var infinite = builder.Build(Regex.InfiniteMatchTimeout);
+        infinite.MatchTimeout.Should().Be(Regex.InfiniteMatchTimeout);
+
+        builder.Invoking(b => b.Build(TimeSpan.Zero)).Should().Throw<ArgumentOutOfRangeException>();
+        builder.Invoking(b => b.Build(TimeSpan.FromMilliseconds(-2))).Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public void TestMultipleBuildsAndChainingAfterBuild()
+    {
+        using var builder = RegexBuilder.Create().Digit().OneOrMore();
+
+        var first = builder.Build();
+        first.IsMatch("123").Should().BeTrue();
+        first.IsMatch("123abc").Should().BeTrue();
+
+        builder.Literal("abc").EndOfString();
+        var second = builder.Build();
+        second.IsMatch("123abc").Should().BeTrue();
+        second.IsMatch("123").Should().BeFalse();
+
+        builder.GetPattern().Should().Be(@"\d+abc$");
+        builder.ToString().Should().Be(@"/\d+abc$/None");
+    }
 }
