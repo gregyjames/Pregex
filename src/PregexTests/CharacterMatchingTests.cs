@@ -85,7 +85,8 @@ public class CharacterMatchingTests
     public void TestLiteralThrowsOnNullWithoutCorruptingBuilder()
     {
         using var builder = RegexBuilder.Create().Digit();
-        builder.Invoking(b => b.Literal(null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.Literal(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("str");
         builder.GetPattern().Should().Be(@"\d");
     }
 
@@ -218,6 +219,15 @@ public class CharacterMatchingTests
         builder.Build().IsMatch(unpaired).Should().BeTrue();
         builder.Compiled().Build().IsMatch(unpaired).Should().BeTrue();
         builder.Build().IsMatch("a").Should().BeFalse();
+
+        using var quantifiedUnpaired = RegexBuilder.Create()
+            .StartOfString()
+            .Literal(unpaired).OneOrMore()
+            .EndOfString()
+            .IgnorePatternWhitespace()
+            .Compiled();
+        quantifiedUnpaired.Build().IsMatch(unpaired + unpaired).Should().BeTrue();
+        quantifiedUnpaired.Build().IsMatch("a").Should().BeFalse();
     }
 
     [Test]

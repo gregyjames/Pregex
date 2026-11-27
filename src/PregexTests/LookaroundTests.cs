@@ -62,10 +62,14 @@ public class LookaroundTests
     {
         using var builder = RegexBuilder.Create().Literal("ab");
 
-        builder.Invoking(b => b.PositiveLookahead(null!)).Should().Throw<ArgumentNullException>();
-        builder.Invoking(b => b.NegativeLookahead(null!)).Should().Throw<ArgumentNullException>();
-        builder.Invoking(b => b.PositiveLookbehind(null!)).Should().Throw<ArgumentNullException>();
-        builder.Invoking(b => b.NegativeLookbehind(null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.PositiveLookahead(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
+        builder.Invoking(b => b.NegativeLookahead(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
+        builder.Invoking(b => b.PositiveLookbehind(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
+        builder.Invoking(b => b.NegativeLookbehind(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
 
         builder.GetPattern().Should().Be("ab");
         builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");

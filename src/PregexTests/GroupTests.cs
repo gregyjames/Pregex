@@ -47,9 +47,12 @@ public class GroupTests
     {
         using var builder = RegexBuilder.Create().Literal("abc");
 
-        builder.Invoking(b => b.Group(null!)).Should().Throw<ArgumentNullException>();
-        builder.Invoking(b => b.NonCapturingGroup(null!)).Should().Throw<ArgumentNullException>();
-        builder.Invoking(b => b.NamedGroup("name", null!)).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.Group(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
+        builder.Invoking(b => b.NonCapturingGroup(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
+        builder.Invoking(b => b.NamedGroup("name", null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("callback");
 
         builder.GetPattern().Should().Be("abc");
         builder.OneOrMore().GetPattern().Should().Be("(?:abc)+");
@@ -91,7 +94,8 @@ public class GroupTests
     public void TestNamedGroupInvalidNamesThrowArgumentExceptionWithoutCorruptingBuilder(string invalidName)
     {
         using var builder = RegexBuilder.Create().Literal("prefix");
-        builder.Invoking(b => b.NamedGroup(invalidName, inner => inner.Digit())).Should().Throw<ArgumentException>();
+        builder.Invoking(b => b.NamedGroup(invalidName, inner => inner.Digit())).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("name");
         builder.GetPattern().Should().Be("prefix");
     }
 
@@ -99,7 +103,8 @@ public class GroupTests
     public void TestNamedGroupNullNameThrowsArgumentNullException()
     {
         using var builder = RegexBuilder.Create().Literal("prefix");
-        builder.Invoking(b => b.NamedGroup(null!, inner => inner.Digit())).Should().Throw<ArgumentNullException>();
+        builder.Invoking(b => b.NamedGroup(null!, inner => inner.Digit())).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("name");
         builder.GetPattern().Should().Be("prefix");
     }
 

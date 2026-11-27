@@ -870,4 +870,51 @@ public class CharacterSetTests
         caretIdentityRange.IsMatch("^").Should().BeFalse();
         caretIdentityRange.IsMatch("a").Should().BeTrue();
     }
+
+    [Test]
+    public void TestSetAndNotSetNullOrEmptyReportParamNameAndPreserveMultiCharLiteralState()
+    {
+        using var builder = RegexBuilder.Create().Literal("ab").IgnoreCase();
+
+        builder.Invoking(b => b.Set(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("chars");
+        builder.Invoking(b => b.Set("")).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("chars");
+        builder.Invoking(b => b.NotSet(null!)).Should().Throw<ArgumentNullException>()
+            .Which.ParamName.Should().Be("chars");
+        builder.Invoking(b => b.NotSet("")).Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("chars");
+
+        builder.GetPattern().Should().Be("ab");
+        builder.GetOptions().Should().Be(RegexOptions.IgnoreCase);
+        builder.OneOrMore().GetPattern().Should().Be("(?:ab)+");
+        builder.Build().IsMatch("ABab").Should().BeTrue();
+    }
+
+    [Test]
+    public void TestSetAndNotSetRawControlRangesAndUnicodeBlocks()
+    {
+        var controlRange = RegexBuilder.Create().StartOfString().Set("\t-\r").EndOfString().Build();
+        controlRange.IsMatch("\t").Should().BeTrue();
+        controlRange.IsMatch("\n").Should().BeTrue();
+        controlRange.IsMatch("\v").Should().BeTrue();
+        controlRange.IsMatch("\f").Should().BeTrue();
+        controlRange.IsMatch("\r").Should().BeTrue();
+        controlRange.IsMatch(" ").Should().BeFalse();
+
+        var basicLatin = RegexBuilder.Create().StartOfString().Set(@"\p{IsBasicLatin}").EndOfString().Build();
+        basicLatin.IsMatch("A").Should().BeTrue();
+        basicLatin.IsMatch("é").Should().BeFalse();
+
+        var nonBasicLatin = RegexBuilder.Create().StartOfString().NotSet(@"\p{IsBasicLatin}").EndOfString().Build();
+        nonBasicLatin.IsMatch("é").Should().BeTrue();
+        nonBasicLatin.IsMatch("A").Should().BeFalse();
+
+        var bracketAndCaretPositions = RegexBuilder.Create().StartOfString().Set("]ab^[").EndOfString().Build();
+        bracketAndCaretPositions.IsMatch("]").Should().BeTrue();
+        bracketAndCaretPositions.IsMatch("^").Should().BeTrue();
+        bracketAndCaretPositions.IsMatch("[").Should().BeTrue();
+        bracketAndCaretPositions.IsMatch("a").Should().BeTrue();
+        bracketAndCaretPositions.IsMatch("c").Should().BeFalse();
+    }
 }
